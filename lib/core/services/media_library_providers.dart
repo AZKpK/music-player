@@ -131,6 +131,56 @@ List<Song> filterLibrarySongs(List<Song> songs, String query) {
       .toList();
 }
 
+/// Sort opcije za zavihek "Vse pesmi" (glej `library_screen.dart` sort meni).
+enum SongSortOption { title, artist, album, dateAddedDesc, duration }
+
+/// Izbrana sort opcija za "Vse pesmi", privzeto po naslovu (enako kot prej,
+/// ko sortiranje še ni bilo izbirno - MediaStore query je že sortiran po
+/// naslovu, glej `MediaLibraryService.querySongs`).
+final librarySortProvider = StateProvider<SongSortOption>(
+  (ref) => SongSortOption.title,
+);
+
+/// [filteredLibrarySongsProvider], sortiran po [librarySortProvider]. Ločen
+/// od filtriranja (najprej se filtrira, nato sortira), da je vsak del
+/// posamezno testabilen - glej [sortLibrarySongs].
+final displayedLibrarySongsProvider = Provider<AsyncValue<List<Song>>>((ref) {
+  final sortOption = ref.watch(librarySortProvider);
+  return ref
+      .watch(filteredLibrarySongsProvider)
+      .whenData((songs) => sortLibrarySongs(songs, sortOption));
+});
+
+/// Čista sort funkcija za [displayedLibrarySongsProvider] - glej
+/// [filterLibrarySongs] za enak razlog ločitve od providerja.
+List<Song> sortLibrarySongs(List<Song> songs, SongSortOption option) {
+  final sorted = [...songs];
+  switch (option) {
+    case SongSortOption.title:
+      sorted.sort((a, b) => a.title.compareTo(b.title));
+    case SongSortOption.artist:
+      sorted.sort((a, b) => a.artist.compareTo(b.artist));
+    case SongSortOption.album:
+      sorted.sort((a, b) => a.album.compareTo(b.album));
+    case SongSortOption.dateAddedDesc:
+      sorted.sort((a, b) {
+        final dateA = a.dateAdded;
+        final dateB = b.dateAdded;
+        if (dateA == null && dateB == null) return 0;
+        if (dateA == null) return 1;
+        if (dateB == null) return -1;
+        return dateB.compareTo(dateA); // najnovejše najprej
+      });
+    case SongSortOption.duration:
+      sorted.sort((a, b) {
+        final durationA = a.duration ?? Duration.zero;
+        final durationB = b.duration ?? Duration.zero;
+        return durationA.compareTo(durationB);
+      });
+  }
+  return sorted;
+}
+
 /// Trenutno predvajana pesem kot [Song] (za "Priljubljena"/"Uredi
 /// metapodatke" gumba na `player_screen.dart`) - zgrajena iz trenutnega
 /// `MediaItem`-a (naslov/artist/album/genre/artwork so bili že spojeni s

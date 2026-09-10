@@ -12,8 +12,18 @@ Song _song({
   required String title,
   required String artist,
   required String album,
+  DateTime? dateAdded,
+  Duration? duration,
 }) {
-  return Song(id: id, title: title, artist: artist, album: album, filePath: '/tmp/$id.mp3');
+  return Song(
+    id: id,
+    title: title,
+    artist: artist,
+    album: album,
+    filePath: '/tmp/$id.mp3',
+    dateAdded: dateAdded,
+    duration: duration,
+  );
 }
 
 void main() {
@@ -45,5 +55,65 @@ void main() {
 
   test('brez zadetkov vrne prazen seznam', () {
     expect(filterLibrarySongs(songs, 'nekaj kar ne obstaja'), isEmpty);
+  });
+
+  group('sortLibrarySongs', () {
+    final unsorted = [
+      _song(
+        id: '1',
+        title: 'B pesem',
+        artist: 'B izvajalec',
+        album: 'B album',
+        dateAdded: DateTime(2024, 1, 1),
+        duration: const Duration(seconds: 200),
+      ),
+      _song(
+        id: '2',
+        title: 'A pesem',
+        artist: 'A izvajalec',
+        album: 'A album',
+        dateAdded: DateTime(2024, 6, 1),
+        duration: const Duration(seconds: 100),
+      ),
+      _song(
+        id: '3',
+        title: 'C pesem',
+        artist: 'C izvajalec',
+        album: 'C album',
+        dateAdded: null,
+        duration: const Duration(seconds: 300),
+      ),
+    ];
+
+    test('title sortira po naslovu naraščajoče', () {
+      final result = sortLibrarySongs(unsorted, SongSortOption.title);
+      expect(result.map((s) => s.id), ['2', '1', '3']);
+    });
+
+    test('artist sortira po izvajalcu naraščajoče', () {
+      final result = sortLibrarySongs(unsorted, SongSortOption.artist);
+      expect(result.map((s) => s.id), ['2', '1', '3']);
+    });
+
+    test('album sortira po albumu naraščajoče', () {
+      final result = sortLibrarySongs(unsorted, SongSortOption.album);
+      expect(result.map((s) => s.id), ['2', '1', '3']);
+    });
+
+    test('dateAddedDesc razvrsti najnovejše najprej, null na konec', () {
+      final result = sortLibrarySongs(unsorted, SongSortOption.dateAddedDesc);
+      expect(result.map((s) => s.id), ['2', '1', '3']);
+    });
+
+    test('duration sortira po trajanju naraščajoče', () {
+      final result = sortLibrarySongs(unsorted, SongSortOption.duration);
+      expect(result.map((s) => s.id), ['2', '1', '3']);
+    });
+
+    test('ne spremeni izvirnega seznama (vrne kopijo)', () {
+      final originalOrder = [...unsorted];
+      sortLibrarySongs(unsorted, SongSortOption.title);
+      expect(unsorted, originalOrder);
+    });
   });
 }

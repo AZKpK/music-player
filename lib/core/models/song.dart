@@ -18,6 +18,7 @@ class Song {
     this.year,
     this.trackNumber,
     this.liked = false,
+    this.dateAdded,
   });
 
   final String id;
@@ -29,6 +30,11 @@ class Song {
   final Uri? artUri;
   final String? genre;
   final int? year;
+
+  /// Kdaj je bila pesem dodana v MediaStore (za sortiranje "Nedavno dodano"
+  /// v knjižnici, glej Faza 6.4). `null` za pesmi brez znanega datuma
+  /// (npr. ročni folder-scan).
+  final DateTime? dateAdded;
 
   /// Zaporedna številka na albumu (1., 2. ...) - uporabljena za sortiranje
   /// pesmi znotraj albuma po pravem vrstnem redu namesto po abecedi.
@@ -45,6 +51,7 @@ class Song {
     int? year,
     int? trackNumber,
     bool? liked,
+    DateTime? dateAdded,
   }) {
     return Song(
       id: id,
@@ -58,6 +65,7 @@ class Song {
       year: year ?? this.year,
       trackNumber: trackNumber ?? this.trackNumber,
       liked: liked ?? this.liked,
+      dateAdded: dateAdded ?? this.dateAdded,
     );
   }
 

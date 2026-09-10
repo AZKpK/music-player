@@ -90,6 +90,11 @@ class MediaLibraryService {
         filePath: song.data,
         duration:
             song.duration != null ? Duration(milliseconds: song.duration!) : null,
+        // MediaStore `DATE_ADDED` je v sekundah od epoch-a (Android
+        // konvencija, za razliko od marsikaterega drugega timestamp polja).
+        dateAdded: song.dateAdded != null
+            ? DateTime.fromMillisecondsSinceEpoch(song.dateAdded! * 1000)
+            : null,
         // Artwork se ne razreši tu (dražje, gl. `resolveArtwork` doc) - polni
         // se šele ob predvajanju (`AudioPlayerHandler`, glej Faza 6.1),
         // seznami pa artwork prikažejo preko `QueryArtworkWidget` (`SongArtwork`

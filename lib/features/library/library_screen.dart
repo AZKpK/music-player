@@ -70,6 +70,35 @@ class _LibraryScreenState extends ConsumerState<LibraryScreen> {
               },
             ),
             if (!_searching) ...[
+              PopupMenuButton<SongSortOption>(
+                icon: const Icon(Icons.sort),
+                tooltip: 'Sortiraj "Vse pesmi"',
+                initialValue: ref.watch(librarySortProvider),
+                onSelected: (option) =>
+                    ref.read(librarySortProvider.notifier).state = option,
+                itemBuilder: (context) => const [
+                  PopupMenuItem(
+                    value: SongSortOption.title,
+                    child: Text('Naslov (A-Ž)'),
+                  ),
+                  PopupMenuItem(
+                    value: SongSortOption.artist,
+                    child: Text('Izvajalec'),
+                  ),
+                  PopupMenuItem(
+                    value: SongSortOption.album,
+                    child: Text('Album'),
+                  ),
+                  PopupMenuItem(
+                    value: SongSortOption.dateAddedDesc,
+                    child: Text('Nedavno dodano'),
+                  ),
+                  PopupMenuItem(
+                    value: SongSortOption.duration,
+                    child: Text('Trajanje'),
+                  ),
+                ],
+              ),
               IconButton(
                 icon: const Icon(Icons.queue_music),
                 tooltip: 'Playliste',
@@ -141,14 +170,15 @@ class _ErrorView extends StatelessWidget {
   }
 }
 
-/// Zavihek "Vse pesmi" - bere [filteredLibrarySongsProvider] (namesto direktno
-/// [librarySongsProvider]), da nanj vpliva iskalno polje v app baru.
+/// Zavihek "Vse pesmi" - bere [displayedLibrarySongsProvider] (namesto
+/// direktno [librarySongsProvider]), da nanj vplivata iskalno polje in sort
+/// meni v app baru.
 class _AllSongsTab extends ConsumerWidget {
   const _AllSongsTab();
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final songs = ref.watch(filteredLibrarySongsProvider).valueOrNull ?? const [];
+    final songs = ref.watch(displayedLibrarySongsProvider).valueOrNull ?? const [];
     if (songs.isEmpty) {
       return const Center(child: Text('Ni zadetkov'));
     }
