@@ -42,7 +42,7 @@ class _LibraryScreenState extends ConsumerState<LibraryScreen> {
     final songsAsync = ref.watch(librarySongsProvider);
 
     return DefaultTabController(
-      length: 3,
+      length: 4,
       child: Scaffold(
         appBar: AppBar(
           title: _searching
@@ -122,6 +122,7 @@ class _LibraryScreenState extends ConsumerState<LibraryScreen> {
               Tab(text: 'Vse pesmi'),
               Tab(text: 'Izvajalci'),
               Tab(text: 'Albumi'),
+              Tab(text: 'Priljubljene'),
             ],
           ),
         ),
@@ -140,6 +141,7 @@ class _LibraryScreenState extends ConsumerState<LibraryScreen> {
                 const _AllSongsTab(),
                 _GroupedTab(groupsProvider: songsByArtistProvider),
                 _GroupedTab(groupsProvider: songsByAlbumProvider, sortByTrack: true),
+                const _LikedSongsTab(),
               ],
             );
           },
@@ -182,6 +184,34 @@ class _AllSongsTab extends ConsumerWidget {
     if (songs.isEmpty) {
       return const Center(child: Text('Ni zadetkov'));
     }
+    return _SongListView(songs: songs);
+  }
+}
+
+/// Zavihek "Priljubljene" - bere [likedSongsProvider].
+class _LikedSongsTab extends ConsumerWidget {
+  const _LikedSongsTab();
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final songs = ref.watch(likedSongsProvider).valueOrNull ?? const [];
+    if (songs.isEmpty) {
+      return const Center(child: Text('Ni priljubljenih pesmi'));
+    }
+    return _SongListView(songs: songs);
+  }
+}
+
+/// Seznam pesmi z naslovnico/naslovom/izvajalcem/priljubljena-ikono/akcijami -
+/// skupna implementacija za "Vse pesmi", "Priljubljene" in `_GroupSongsScreen`
+/// (izvajalec/album podseznam).
+class _SongListView extends ConsumerWidget {
+  const _SongListView({required this.songs});
+
+  final List<Song> songs;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
     return ListView.builder(
       itemCount: songs.length,
       itemBuilder: (context, index) {
@@ -279,30 +309,7 @@ class _GroupSongsScreen extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     return Scaffold(
       appBar: AppBar(title: Text(title)),
-      body: ListView.builder(
-        itemCount: songs.length,
-        itemBuilder: (context, index) {
-          final song = songs[index];
-          return ListTile(
-            leading: SongArtwork(song: song),
-            title: Text(song.title),
-            subtitle: Text(song.artist),
-            onTap: () => _playFrom(context, ref, songs, index),
-            trailing: Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                if (song.liked)
-                  Icon(Icons.favorite, size: 18, color: Theme.of(context).colorScheme.primary),
-                IconButton(
-                  icon: const Icon(Icons.more_vert),
-                  tooltip: 'Dejanja',
-                  onPressed: () => showSongActionsSheet(context, ref, song),
-                ),
-              ],
-            ),
-          );
-        },
-      ),
+      body: _SongListView(songs: songs),
     );
   }
 }
