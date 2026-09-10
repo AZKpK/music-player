@@ -60,13 +60,19 @@ flutter analyze     # statična analiza - mora biti brez napak
 flutter test         # unit/widget testi
 ```
 
-Trenutno app ob zagonu odpre zaslon **"Izberi pesmi za test predvajanja"**
-(`lib/features/library/library_test_screen.dart`) — to je začasen file-picker,
-ki nadomešča pravi library scan dokler ta ni implementiran (faza 3). Ročni test:
+Trenutno app ob zagonu odpre zaslon **"Music Player"**
+(`lib/features/library/library_test_screen.dart`) z dvema gumboma — to je
+začasen file-picker, ki nadomešča pravi library scan dokler ta ni
+implementiran preko `on_audio_query` (glej znano odprto vprašanje spodaj).
+Ročni test:
 
 1. `flutter run` na telefonu/emulatorju
-2. Klikni gumb, izberi eno ali več lokalnih audio datotek (mp3/m4a/...)
-3. App bi moral začeti predvajati in te preusmeriti na now-playing zaslon
+2. **"Izberi mapo (vse pesmi iz podmap)"** — izberi mapo (npr. `Music` ali kar
+   celoten `Internal storage` root za vso glasbo na napravi); app rekurzivno
+   poišče vse audio datoteke v vseh podmapah (`lib/core/services/library_scanner.dart`)
+   in jih naloži v queue. Alternativno **"Izberi posamezne datoteke"** za ročno
+   (multi-)izbiro posameznih datotek.
+3. App začne predvajati in te preusmeri na now-playing zaslon
    (`lib/features/player/player_screen.dart`), kjer testiraš play/pause, next/prev,
    shuffle, repeat (none → all → one) in tapanje na pesem v queue-u
 
@@ -123,12 +129,33 @@ Flutter SDK, Android SDK (cmdline-tools, NDK, licence), VS Code razširitvi. Pod
   vsi prehajajo (`app-debug.apk`, 147MB)
 
 **Znano odprto vprašanje:** `on_audio_query` (paket za branje glasbene knjižnice
-z naprave, potreben za fazo 3) je začasno odstranjen iz `pubspec.yaml`, ker
-verzija 2.9.0 ni kompatibilna z novejšim Android Gradle Plugin (manjka
-`namespace` v `on_audio_query_android`). Pred fazo 3 je treba preveriti
-`3.0.0-beta.0` ali poiskati alternativo.
+z naprave preko Android MediaStore, s pravim artist/album metadata) je začasno
+odstranjen iz `pubspec.yaml`, ker verzija 2.9.0 ni kompatibilna z novejšim
+Android Gradle Plugin (manjka `namespace` v `on_audio_query_android`). Do
+takrat knjižnico nadomešča ročni folder-scan (glej spodaj) — deluje, a brez
+prave metadata (artist/album je samo ime mape).
+
+### Faza 2.5 — Folder-based library scan + bugfix ✅
+- `lib/core/services/library_scanner.dart` — `scanFolderForSongs()` rekurzivno
+  poišče vse audio datoteke (mp3/m4a/aac/wav/flac/ogg/opus/wma) znotraj izbrane
+  mape in vseh podmap, sortirano po poti
+- `LibraryTestScreen` dopolnjen: gumb **"Izberi mapo (vse pesmi iz podmap)"**
+  (uporabi `FilePicker.getDirectoryPath()` + `permission_handler` za
+  `Permission.audio`/`Permission.storage`) poleg obstoječega
+  "Izberi posamezne datoteke". Izbira root mape (`Internal storage`) da efektivno
+  "vso glasbo na napravi"; izbira podmape (npr. `Music/Album X`) da samo tisto.
+- **Bugfix:** `handler.play()` se ni smel `await`-ati pred `Navigator.push` —
+  `just_audio`-jev `AudioPlayer.play()` Future se razreši šele ko se
+  predvajanje ustavi/konča, ne ko se začne, zato je `await` blokiral
+  navigacijo na player zaslon (queue je ostal na eni pesmi, skip/prev sta bila
+  brez učinka, ker do `PlayerScreen`-a v praksi ni prišlo dokler se predvajana
+  pesem ni iztekla). Popravljeno z `unawaited(handler.play())`.
+- Preverjeno ročno na emulatorju: izbira `Music` mape z 5 mp3-ji naloži vseh 5
+  v queue, takoj preusmeri na `PlayerScreen`, skip next/previous pravilno
+  menjata pesmi v queue-u
 
 ### Faza 3+ — še ni začeto
-Library scanning (auto-sort by artist/album), playlists, play-history tracking,
-yearly wrap, bulk tagging, YouTube auto-download. Glej celoten plan v
+Pravi library scan preko `on_audio_query` (artist/album metadata, cover art),
+playlists, play-history tracking, yearly wrap, bulk tagging, YouTube
+auto-download. Glej celoten plan v
 `/home/andra/.claude/plans/kako-te-ko-bi-bilo-ethereal-muffin.md`.
