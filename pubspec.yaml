@@ -40,7 +40,11 @@ dependencies:
   audio_service: ^0.18.15
 
   # --- Local music library access (artists/albums/folders from device) ---
-  on_audio_query: ^2.9.0
+  # TODO(faza3): on_audio_query 2.9.0 se ne zgradi z novejšim AGP
+  # (manjka namespace v on_audio_query_android build.gradle - paket
+  # je zastarel). Preveriti 3.0.0-beta.0 ali alternativo, ko pridemo
+  # do library scanning feature-ja.
+  # on_audio_query: ^2.9.0
 
   # --- Local database (playlists, play-history, custom tags) ---
   drift: ^2.20.3
@@ -50,6 +54,7 @@ dependencies:
 
   # --- Permissions & filesystem ---
   permission_handler: ^11.3.1
+  file_picker: ^8.1.6
 
   # --- YouTube search/download (faza 9 - kasneje) ---
   youtube_explode_dart: ^2.3.9
