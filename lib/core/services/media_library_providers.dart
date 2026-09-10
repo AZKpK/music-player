@@ -99,6 +99,38 @@ final likedSongsProvider = Provider<AsyncValue<List<Song>>>((ref) {
       .whenData((songs) => songs.where((s) => s.liked).toList());
 });
 
+/// Trenutno vneseno iskalno besedilo v "Vse pesmi" zavihku (glej
+/// `library_screen.dart` search-v-app-baru).
+final librarySearchQueryProvider = StateProvider<String>((ref) => '');
+
+/// [librarySongsProvider], filtriran po [librarySearchQueryProvider]
+/// (naslov/izvajalec/album, case-insensitive substring match). Prazen query
+/// vrne celotno knjižnico nespremenjeno.
+final filteredLibrarySongsProvider = Provider<AsyncValue<List<Song>>>((ref) {
+  final query = ref.watch(librarySearchQueryProvider);
+  return ref
+      .watch(librarySongsProvider)
+      .whenData((songs) => filterLibrarySongs(songs, query));
+});
+
+/// Čista filter funkcija za [filteredLibrarySongsProvider] - izločena iz
+/// providerja, da je testabilna brez platform-channel/DB odvisnosti (glej
+/// `test/media_library_filter_test.dart`). Prazen (ali samo presledki) query
+/// vrne `songs` nespremenjen; sicer case-insensitive substring match na
+/// naslov/izvajalec/album.
+List<Song> filterLibrarySongs(List<Song> songs, String query) {
+  final trimmed = query.trim().toLowerCase();
+  if (trimmed.isEmpty) return songs;
+  return songs
+      .where(
+        (song) =>
+            song.title.toLowerCase().contains(trimmed) ||
+            song.artist.toLowerCase().contains(trimmed) ||
+            song.album.toLowerCase().contains(trimmed),
+      )
+      .toList();
+}
+
 /// Trenutno predvajana pesem kot [Song] (za "Priljubljena"/"Uredi
 /// metapodatke" gumba na `player_screen.dart`) - zgrajena iz trenutnega
 /// `MediaItem`-a (naslov/artist/album/genre/artwork so bili že spojeni s

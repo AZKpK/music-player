@@ -14,35 +14,79 @@ import 'song_actions.dart';
 
 /// Prava glasbena knjižnica z naprave (MediaStore preko `on_audio_query`),
 /// z zavihki za vse pesmi ter grupiranjem po izvajalcu/albumu.
-class LibraryScreen extends ConsumerWidget {
+class LibraryScreen extends ConsumerStatefulWidget {
   const LibraryScreen({super.key});
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<LibraryScreen> createState() => _LibraryScreenState();
+}
+
+class _LibraryScreenState extends ConsumerState<LibraryScreen> {
+  bool _searching = false;
+  final _searchController = TextEditingController();
+
+  @override
+  void dispose() {
+    _searchController.dispose();
+    super.dispose();
+  }
+
+  void _stopSearching() {
+    _searchController.clear();
+    ref.read(librarySearchQueryProvider.notifier).state = '';
+    setState(() => _searching = false);
+  }
+
+  @override
+  Widget build(BuildContext context) {
     final songsAsync = ref.watch(librarySongsProvider);
 
     return DefaultTabController(
       length: 3,
       child: Scaffold(
         appBar: AppBar(
-          title: const Text('Knjižnica'),
+          title: _searching
+              ? TextField(
+                  controller: _searchController,
+                  autofocus: true,
+                  decoration: const InputDecoration(
+                    hintText: 'Išči po naslovu/izvajalcu/albumu...',
+                    border: InputBorder.none,
+                  ),
+                  onChanged: (value) =>
+                      ref.read(librarySearchQueryProvider.notifier).state = value,
+                )
+              : const Text('Knjižnica'),
           actions: [
             IconButton(
-              icon: const Icon(Icons.queue_music),
-              tooltip: 'Playliste',
-              onPressed: () => Navigator.of(context).push(
-                MaterialPageRoute(builder: (_) => const PlaylistsScreen()),
-              ),
+              icon: Icon(_searching ? Icons.close : Icons.search),
+              tooltip: _searching ? 'Prekliči iskanje' : 'Išči',
+              onPressed: () {
+                if (_searching) {
+                  _stopSearching();
+                } else {
+                  setState(() => _searching = true);
+                }
+              },
             ),
-            // Folder-scan ostaja kot alternativa: koristen za datoteke, ki jih
-            // MediaStore še ni indeksiral (npr. ravnokar prekopirane preko adb).
-            IconButton(
-              icon: const Icon(Icons.snippet_folder_outlined),
-              tooltip: 'Izberi mapo ročno (folder-scan)',
-              onPressed: () => Navigator.of(context).push(
-                MaterialPageRoute(builder: (_) => const LibraryTestScreen()),
+            if (!_searching) ...[
+              IconButton(
+                icon: const Icon(Icons.queue_music),
+                tooltip: 'Playliste',
+                onPressed: () => Navigator.of(context).push(
+                  MaterialPageRoute(builder: (_) => const PlaylistsScreen()),
+                ),
               ),
-            ),
+              // Folder-scan ostaja kot alternativa: koristen za datoteke, ki jih
+              // MediaStore še ni indeksiral (npr. ravnokar prekopirane preko adb).
+              IconButton(
+                icon: const Icon(Icons.snippet_folder_outlined),
+                tooltip: 'Izberi mapo ročno (folder-scan)',
+                onPressed: () => Navigator.of(context).push(
+                  MaterialPageRoute(builder: (_) => const LibraryTestScreen()),
+                ),
+              ),
+            ],
           ],
           bottom: const TabBar(
             tabs: [
@@ -64,7 +108,7 @@ class LibraryScreen extends ConsumerWidget {
             }
             return TabBarView(
               children: [
-                _AllSongsTab(songs: songs),
+                const _AllSongsTab(),
                 _GroupedTab(groupsProvider: songsByArtistProvider),
                 _GroupedTab(groupsProvider: songsByAlbumProvider, sortByTrack: true),
               ],
@@ -97,13 +141,17 @@ class _ErrorView extends StatelessWidget {
   }
 }
 
+/// Zavihek "Vse pesmi" - bere [filteredLibrarySongsProvider] (namesto direktno
+/// [librarySongsProvider]), da nanj vpliva iskalno polje v app baru.
 class _AllSongsTab extends ConsumerWidget {
-  const _AllSongsTab({required this.songs});
-
-  final List<Song> songs;
+  const _AllSongsTab();
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    final songs = ref.watch(filteredLibrarySongsProvider).valueOrNull ?? const [];
+    if (songs.isEmpty) {
+      return const Center(child: Text('Ni zadetkov'));
+    }
     return ListView.builder(
       itemCount: songs.length,
       itemBuilder: (context, index) {
