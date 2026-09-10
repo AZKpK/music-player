@@ -1,6 +1,12 @@
+import 'dart:io';
+
 import 'package:on_audio_query/on_audio_query.dart';
+import 'package:path_provider/path_provider.dart';
 
 import '../models/song.dart';
+
+/// Prefiks ID-jev pesmi, ki prihajajo iz MediaStore-a (glej [_toSong]).
+const _mediaStoreIdPrefix = 'media_store:';
 
 /// Bere lokalno glasbeno knjižnico z naprave preko Android MediaStore
 /// (`on_audio_query`). Za razliko od [scanFolderForSongs] (ročni folder-scan
@@ -44,18 +50,49 @@ class MediaLibraryService {
     return grouped;
   }
 
+  /// Razreši MediaStore artwork za pesem z ID-jem `media_store:<int>` v
+  /// datoteko na disku in vrne `file://` [Uri] primeren za `MediaItem.artUri`
+  /// (notifikacija/lock-screen zahtevata dejansko datoteko/Uri, ne Flutter
+  /// widget kot `QueryArtworkWidget`). `null` če pesem ni iz MediaStore-a ali
+  /// artworka ni (na voljo). Rezultat je cache-iran na disk
+  /// (`<temp>/artwork_cache/<id>.jpg`), zato se isti artwork ne bere iz
+  /// MediaStore-a ob vsakem `loadQueue`.
+  Future<Uri?> resolveArtwork(String songId) async {
+    if (!songId.startsWith(_mediaStoreIdPrefix)) return null;
+    final mediaStoreId = int.tryParse(
+      songId.substring(_mediaStoreIdPrefix.length),
+    );
+    if (mediaStoreId == null) return null;
+
+    final cacheDir = Directory(
+      '${(await getTemporaryDirectory()).path}/artwork_cache',
+    );
+    final cacheFile = File('${cacheDir.path}/$mediaStoreId.jpg');
+    if (await cacheFile.exists()) return cacheFile.uri;
+
+    final bytes = await _query.queryArtwork(
+      mediaStoreId,
+      ArtworkType.AUDIO,
+      format: ArtworkFormat.JPEG,
+    );
+    if (bytes == null || bytes.isEmpty) return null;
+
+    await cacheDir.create(recursive: true);
+    await cacheFile.writeAsBytes(bytes, flush: true);
+    return cacheFile.uri;
+  }
+
   Song _toSong(SongModel song) => Song(
-        id: 'media_store:${song.id}',
+        id: '$_mediaStoreIdPrefix${song.id}',
         title: song.title,
         artist: song.artist ?? 'Neznan izvajalec',
         album: song.album ?? 'Neznan album',
         filePath: song.data,
         duration:
             song.duration != null ? Duration(milliseconds: song.duration!) : null,
-        // TODO: album art preko `content://media/external/audio/albumart/<id>`
-        // ni zanesljivo od Android 10 naprej (potrebuje ContentResolver.loadThumbnail
-        // preko native kode). `on_audio_query` za to ponuja `QueryArtworkWidget`,
-        // ki pa vrača Flutter Widget, ne Uri primeren za MediaItem.artUri/
-        // notification art - za zdaj brez artwork-a, glej README.
+        // Artwork se ne razreši tu (dražje, gl. `resolveArtwork` doc) - polni
+        // se šele ob predvajanju (`AudioPlayerHandler`, glej Faza 6.1),
+        // seznami pa artwork prikažejo preko `QueryArtworkWidget` (`SongArtwork`
+        // widget), ki ga bere direktno iz MediaStore-a brez te cache datoteke.
       );
 }

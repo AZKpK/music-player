@@ -2,6 +2,7 @@ import 'package:audio_service/audio_service.dart';
 import 'package:just_audio/just_audio.dart';
 
 import '../models/song.dart';
+import 'media_library_service.dart';
 
 /// Inicializira audio_service background handler. Kliči enkrat v main()
 /// preden zaženeš runApp().
@@ -37,6 +38,7 @@ class AudioPlayerHandler extends BaseAudioHandler
 
   final AudioPlayer _player = AudioPlayer();
   final _playlist = ConcatenatingAudioSource(children: []);
+  final MediaLibraryService _libraryService = MediaLibraryService();
 
   /// Trenutni repeat mode (none / one / all).
   AudioServiceRepeatMode get repeatMode => _repeatMode;
@@ -47,14 +49,14 @@ class AudioPlayerHandler extends BaseAudioHandler
 
   /// Nastavi novo vrsto predvajanja (queue) in začne predvajati od `initialIndex`.
   Future<void> loadQueue(List<Song> songs, {int initialIndex = 0}) async {
-    queue.add(songs.map(_songToMediaItem).toList());
+    queue.add(await Future.wait(songs.map(_resolveMediaItem)));
     await _playlist.clear();
     await _playlist.addAll(songs.map(_songToAudioSource).toList());
     await _player.setAudioSource(_playlist, initialIndex: initialIndex);
   }
 
   Future<void> addToQueue(Song song) async {
-    queue.add([...queue.value, _songToMediaItem(song)]);
+    queue.add([...queue.value, await _resolveMediaItem(song)]);
     await _playlist.add(_songToAudioSource(song));
   }
 
@@ -66,7 +68,8 @@ class AudioPlayerHandler extends BaseAudioHandler
       return;
     }
     final insertIndex = (_player.currentIndex ?? 0) + 1;
-    final updatedQueue = [...queue.value]..insert(insertIndex, _songToMediaItem(song));
+    final updatedQueue = [...queue.value]
+      ..insert(insertIndex, await _resolveMediaItem(song));
     queue.add(updatedQueue);
     await _playlist.insert(insertIndex, _songToAudioSource(song));
   }
@@ -161,6 +164,16 @@ class AudioPlayerHandler extends BaseAudioHandler
         duration: song.duration,
         artUri: song.artUri,
       );
+
+  /// Kot [_songToMediaItem], a doda `artUri` iz MediaStore artworka, če
+  /// `song.artUri` še ni nastavljen (ročna naslovnica iz "Uredi metapodatke"
+  /// ima prednost - glej `applyOverride()` v `media_library_providers.dart`).
+  /// Uporabljeno pri nalaganju v queue, da notifikacija/lock-screen in
+  /// `PlayerScreen` dobita pravo albumsko naslovnico brez ročnega urejanja.
+  Future<MediaItem> _resolveMediaItem(Song song) async {
+    final artUri = song.artUri ?? await _libraryService.resolveArtwork(song.id);
+    return _songToMediaItem(song).copyWith(artUri: artUri);
+  }
 
   AudioSource _songToAudioSource(Song song) =>
       AudioSource.uri(Uri.file(song.filePath), tag: _songToMediaItem(song));

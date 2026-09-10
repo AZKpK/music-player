@@ -6,6 +6,7 @@ import '../../core/services/audio_player_providers.dart';
 import '../../core/services/media_library_providers.dart';
 import '../../core/services/playlist_providers.dart';
 import '../../core/navigation/player_screen_visibility.dart';
+import '../../shared/widgets/song_artwork.dart';
 import '../library/edit_song_metadata_dialog.dart';
 
 /// Za koliko preskoči gumb "+5s"/"-5s".
@@ -54,7 +55,12 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen> {
       appBar: AppBar(title: const Text('Predvajam')),
       body: Column(
         children: [
-          const SizedBox(height: 32),
+          const SizedBox(height: 24),
+          if (currentSong != null)
+            Center(
+              child: SongArtwork(song: currentSong, size: 240),
+            ),
+          const SizedBox(height: 16),
           Row(
             mainAxisAlignment: MainAxisAlignment.center,
             crossAxisAlignment: CrossAxisAlignment.center,
