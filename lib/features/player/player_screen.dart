@@ -5,6 +5,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../core/services/audio_player_providers.dart';
 import '../../core/services/media_library_providers.dart';
 import '../../core/services/playlist_providers.dart';
+import '../../core/navigation/player_screen_visibility.dart';
 import '../library/edit_song_metadata_dialog.dart';
 
 /// Za koliko preskoči gumb "+5s"/"-5s".
@@ -14,11 +15,28 @@ const _seekStep = Duration(seconds: 5);
 /// in uredi-metapodatke gumba), seek slider z ročnim nastavljanjem pozicije
 /// in +5s/-5s gumbi, play/pause, next/prev, shuffle in repeat toggle, ter
 /// prikaz queue-a spodaj.
-class PlayerScreen extends ConsumerWidget {
+class PlayerScreen extends ConsumerStatefulWidget {
   const PlayerScreen({super.key});
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<PlayerScreen> createState() => _PlayerScreenState();
+}
+
+class _PlayerScreenState extends ConsumerState<PlayerScreen> {
+  @override
+  void initState() {
+    super.initState();
+    showPlayerScreen();
+  }
+
+  @override
+  void dispose() {
+    hidePlayerScreen();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
     final handler = ref.watch(audioHandlerProvider);
     final mediaItem = ref.watch(currentMediaItemProvider).valueOrNull;
     final playbackState = ref.watch(playbackStateProvider).valueOrNull;
