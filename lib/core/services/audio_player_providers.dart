@@ -22,3 +22,10 @@ final playbackStateProvider = StreamProvider<PlaybackState>((ref) {
 final queueProvider = StreamProvider<List<MediaItem>>((ref) {
   return ref.watch(audioHandlerProvider).queue;
 });
+
+/// Trenutna pozicija predvajanja, ki redno "tika" med predvajanjem (za
+/// animiran seek slider) - `audio_service`-ova vgrajena pomožna implementacija
+/// (glej `AudioService.position`), namesto da bi si sami postavljali `Timer`.
+final playbackPositionProvider = StreamProvider<Duration>((ref) {
+  return AudioService.position;
+});

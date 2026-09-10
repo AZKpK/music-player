@@ -2,6 +2,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../db/app_database.dart';
 import '../models/song.dart';
+import 'audio_player_providers.dart';
 import 'media_library_service.dart';
 import 'playlist_providers.dart';
 
@@ -69,18 +70,24 @@ Song applyOverride(Song song, SongOverride? override) {
     year: override.year,
     trackNumber: override.trackNumber,
     liked: override.liked,
-    artUri: override.artworkPath != null ? Uri.file(override.artworkPath!) : null,
+    artUri: override.artworkPath != null
+        ? Uri.file(override.artworkPath!)
+        : null,
   );
 }
 
 /// Pesmi grupirane po izvajalcu, izpeljano iz [librarySongsProvider].
-final songsByArtistProvider = Provider<AsyncValue<Map<String, List<Song>>>>((ref) {
+final songsByArtistProvider = Provider<AsyncValue<Map<String, List<Song>>>>((
+  ref,
+) {
   final service = ref.watch(mediaLibraryServiceProvider);
   return ref.watch(librarySongsProvider).whenData(service.groupByArtist);
 });
 
 /// Pesmi grupirane po albumu, izpeljano iz [librarySongsProvider].
-final songsByAlbumProvider = Provider<AsyncValue<Map<String, List<Song>>>>((ref) {
+final songsByAlbumProvider = Provider<AsyncValue<Map<String, List<Song>>>>((
+  ref,
+) {
   final service = ref.watch(mediaLibraryServiceProvider);
   return ref.watch(librarySongsProvider).whenData(service.groupByAlbum);
 });
@@ -90,4 +97,35 @@ final likedSongsProvider = Provider<AsyncValue<List<Song>>>((ref) {
   return ref
       .watch(librarySongsProvider)
       .whenData((songs) => songs.where((s) => s.liked).toList());
+});
+
+/// Trenutno predvajana pesem kot [Song] (za "Priljubljena"/"Uredi
+/// metapodatke" gumba na `player_screen.dart`) - zgrajena iz trenutnega
+/// `MediaItem`-a (naslov/artist/album/genre/artwork so bili že spojeni s
+/// popravki ob nalaganju queue-ja) + `liked`/`year`/`trackNumber` neposredno
+/// iz [songOverridesProvider] (`MediaItem` teh polj ne nosi).
+///
+/// `filePath` je namerno prazen - ti dve akciji ga ne potrebujeta, celoten
+/// `Song` iz knjižnice/playliste pa tu ni vedno na voljo (queue lahko pride
+/// iz playliste, ki ni nujno v trenutni `librarySongsProvider` listi).
+final currentSongProvider = Provider<Song?>((ref) {
+  final mediaItem = ref.watch(currentMediaItemProvider).valueOrNull;
+  if (mediaItem == null) return null;
+
+  final override = ref.watch(songOverridesProvider).valueOrNull?[mediaItem.id];
+  return Song(
+    id: mediaItem.id,
+    title: override?.title ?? mediaItem.title,
+    artist: override?.artist ?? mediaItem.artist ?? '',
+    album: override?.album ?? mediaItem.album ?? '',
+    filePath: '',
+    duration: mediaItem.duration,
+    artUri: override?.artworkPath != null
+        ? Uri.file(override!.artworkPath!)
+        : mediaItem.artUri,
+    genre: override?.genre ?? mediaItem.genre,
+    year: override?.year,
+    trackNumber: override?.trackNumber,
+    liked: override?.liked ?? false,
+  );
 });
