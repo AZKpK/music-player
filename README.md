@@ -75,11 +75,20 @@ Izvajalci / Albumi), ki bere pravo glasbeno knjižnico z naprave preko
    naprej in preusmeri na now-playing zaslon (`lib/features/player/player_screen.dart`),
    kjer testiraš play/pause, next/prev, shuffle, repeat (none → all → one) in
    tapanje na pesem v queue-u
-5. Ikona mape v zgornjem desnem kotu (`Knjižnica` app bar) odpre alternativni
+5. Ikona z notami (queue_music) v app baru odpre **"Playliste"**
+   (`lib/features/playlists/playlists_screen.dart`, glej Faza 4) — CRUD nad
+   lokalno shranjenimi playlistami (drift/SQLite)
+6. Ikona mape v zgornjem desnem kotu (`Knjižnica` app bar) odpre alternativni
    ročni **folder-scan** zaslon (`lib/features/library/library_test_screen.dart`,
    glej Faza 2.5) — uporabno za datoteke, ki jih MediaStore še ni indeksiral
    (npr. ravnokar prekopirane preko `adb push`, dokler ne sproži-š
    `MEDIA_SCANNER_SCAN_FILE` broadcasta ali se naprava ne ponovno zažene)
+
+Za playliste: v katerikoli pesmi v knjižnici tapni ikono **"Dodaj v playlisto"**
+(desno od pesmi) — odpre bottom sheet z obstoječimi playlistami + možnostjo
+"Nova playlista...". V zaslonu "Playliste" lahko playlisto preimenuješ/izbrišeš
+(tri pikice), znotraj playliste pa pesem odstraniš (ikona minus) ali tapneš
+pesem za predvajanje cele playliste od tiste pesmi naprej.
 
 Za testiranje **background playback**-a (lock-screen kontrole, notifikacija):
 zaženi predvajanje, pojdi iz app-a (home button) in preveri, da notifikacija
@@ -101,7 +110,7 @@ Flutter SDK, Android SDK (cmdline-tools, NDK, licence), VS Code razširitvi. Pod
   lib/
   ├── main.dart
   ├── core/
-  │   ├── db/            # (prazno - drift schema pride v fazi 4/7)
+  │   ├── db/            # app_database.dart (drift schema, Faza 4)
   │   ├── services/       # audio_player_service.dart, audio_player_providers.dart
   │   └── models/         # song.dart
   ├── features/
@@ -200,7 +209,47 @@ knjižnico nadomeščal ročni folder-scan (glej Faza 2.5 spodaj).
   queue in začne predvajati, `flutter analyze`/`flutter test`/
   `flutter build apk --debug` vsi prehajajo
 
-### Faza 4+ — še ni začeto
-Playlists, play-history tracking, yearly wrap, bulk tagging, YouTube
-auto-download. Glej celoten plan v
-`/home/andra/.claude/plans/kako-te-ko-bi-bilo-ethereal-muffin.md`.
+### Faza 4 — Playlists preko drift (SQLite) ✅
+- `lib/core/db/app_database.dart` — `AppDatabase` (`drift`, `NativeDatabase`
+  preko `sqlite3_flutter_libs`, datoteka `music_player.sqlite` v
+  `getApplicationDocumentsDirectory()`). Dve tabeli:
+  - `Playlists` (`id`, `name`, `createdAt`)
+  - `PlaylistSongs` (`id`, `playlistId` → FK na `Playlists` z
+    `onDelete: cascade`, `position`, ter podatki o pesmi podvojeni direktno v
+    vrstico: `songId`, `title`, `artist`, `album`, `filePath`, `durationMs`).
+    Podatki o pesmi so namerno denormalizirani (ne FK na knjižnico), ker
+    `on_audio_query`-jevi MediaStore ID-ji niso stabilna trajna referenca —
+    playlista mora ostati uporabna tudi če se knjižnica kasneje spremeni/
+    reindeksira.
+  - `AppDatabase` metode: `watchAllPlaylists()`/`watchPlaylistSongs(id)`
+    (Stream, za reaktiven UI), `createPlaylist`/`renamePlaylist`/
+    `deletePlaylist`, `addSongToPlaylist` (doda na konec, `position` iz
+    trenutnega count-a), `removeSongFromPlaylist`. Prosta funkcija
+    `playlistSongToSong()` pretvori shranjeno vrstico nazaj v `Song` za
+    predvajanje.
+  - Generirano preko `build_runner` (`part 'app_database.g.dart'`,
+    `flutter pub run build_runner build`)
+- `lib/core/services/playlist_providers.dart` — `appDatabaseProvider`
+  (singleton `AppDatabase`, `ref.onDispose(db.close)`),
+  `playlistsProvider`/`playlistSongsProvider` (`StreamProvider`/
+  `StreamProvider.family` nad zgornjimi `watch*` metodami)
+- `lib/features/playlists/playlists_screen.dart`:
+  - `PlaylistsScreen` — seznam playlist, FAB za ustvarjanje (dialog z imenom),
+    per-playlista meni (tri pikice) za preimenovanje/brisanje (z
+    confirm dialogom)
+  - `PlaylistDetailScreen` — seznam pesmi znotraj playliste, tap predvaja
+    celo playlisto od tiste pesmi naprej (isti `unawaited(play())` +
+    takojšen `Navigator.push` vzorec kot povsod), gumb za odstranitev pesmi
+- `lib/features/library/library_screen.dart` dopolnjen: vsaka pesem (v "Vse
+  pesmi" in znotraj skupine izvajalca/albuma) ima ikono **"Dodaj v
+  playlisto"**, ki odpre bottom sheet z obstoječimi playlistami + "Nova
+  playlista..."; nova ikona v app baru odpre `PlaylistsScreen`
+- Preverjeno ročno na emulatorju: ustvarjena playlista "Favoriti", dodana
+  pesem "Mr. Brightside" preko bottom sheet-a, playlista pravilno prikaže
+  dodano pesem, tap nanjo naloži queue in začne predvajati (potrjeno na
+  now-playing zaslonu). `flutter analyze`/`flutter test`/
+  `flutter build apk --debug` vsi prehajajo.
+
+### Faza 5+ — še ni začeto
+Play-history tracking, yearly wrap, bulk tagging, YouTube auto-download. Glej
+celoten plan v `/home/andra/.claude/plans/kako-te-ko-bi-bilo-ethereal-muffin.md`.

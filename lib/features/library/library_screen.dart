@@ -6,7 +6,9 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../core/models/song.dart';
 import '../../core/services/audio_player_providers.dart';
 import '../../core/services/media_library_providers.dart';
+import '../../core/services/playlist_providers.dart';
 import '../player/player_screen.dart';
+import '../playlists/playlists_screen.dart';
 import 'library_test_screen.dart';
 
 /// Prava glasbena knjižnica z naprave (MediaStore preko `on_audio_query`),
@@ -24,6 +26,13 @@ class LibraryScreen extends ConsumerWidget {
         appBar: AppBar(
           title: const Text('Knjižnica'),
           actions: [
+            IconButton(
+              icon: const Icon(Icons.queue_music),
+              tooltip: 'Playliste',
+              onPressed: () => Navigator.of(context).push(
+                MaterialPageRoute(builder: (_) => const PlaylistsScreen()),
+              ),
+            ),
             // Folder-scan ostaja kot alternativa: koristen za datoteke, ki jih
             // MediaStore še ni indeksiral (npr. ravnokar prekopirane preko adb).
             IconButton(
@@ -103,6 +112,11 @@ class _AllSongsTab extends ConsumerWidget {
           title: Text(song.title),
           subtitle: Text(song.artist),
           onTap: () => _playFrom(context, ref, songs, index),
+          trailing: IconButton(
+            icon: const Icon(Icons.playlist_add),
+            tooltip: 'Dodaj v playlisto',
+            onPressed: () => _showAddToPlaylistSheet(context, ref, song),
+          ),
         );
       },
     );
@@ -165,11 +179,83 @@ class _GroupSongsScreen extends ConsumerWidget {
             title: Text(song.title),
             subtitle: Text(song.artist),
             onTap: () => _playFrom(context, ref, songs, index),
+            trailing: IconButton(
+              icon: const Icon(Icons.playlist_add),
+              tooltip: 'Dodaj v playlisto',
+              onPressed: () => _showAddToPlaylistSheet(context, ref, song),
+            ),
           );
         },
       ),
     );
   }
+}
+
+/// Prikaže bottom sheet z obstoječimi playlistami (+ možnost ustvarjanja
+/// nove) in dodane `song` v izbrano.
+Future<void> _showAddToPlaylistSheet(
+  BuildContext context,
+  WidgetRef ref,
+  Song song,
+) async {
+  final playlists = await ref.read(playlistsProvider.future);
+  if (!context.mounted) return;
+
+  final db = ref.read(appDatabaseProvider);
+
+  await showModalBottomSheet<void>(
+    context: context,
+    builder: (sheetContext) => SafeArea(
+      child: ListView(
+        shrinkWrap: true,
+        children: [
+          ListTile(
+            leading: const Icon(Icons.add),
+            title: const Text('Nova playlista...'),
+            onTap: () async {
+              Navigator.of(sheetContext).pop();
+              final controller = TextEditingController();
+              final name = await showDialog<String>(
+                context: context,
+                builder: (dialogContext) => AlertDialog(
+                  title: const Text('Nova playlista'),
+                  content: TextField(
+                    controller: controller,
+                    autofocus: true,
+                    decoration: const InputDecoration(hintText: 'Ime playliste'),
+                  ),
+                  actions: [
+                    TextButton(
+                      onPressed: () => Navigator.of(dialogContext).pop(),
+                      child: const Text('Prekliči'),
+                    ),
+                    TextButton(
+                      onPressed: () =>
+                          Navigator.of(dialogContext).pop(controller.text.trim()),
+                      child: const Text('Ustvari'),
+                    ),
+                  ],
+                ),
+              );
+              if (name == null || name.isEmpty) return;
+              final id = await db.createPlaylist(name);
+              await db.addSongToPlaylist(id, song);
+            },
+          ),
+          if (playlists.isNotEmpty) const Divider(height: 1),
+          for (final playlist in playlists)
+            ListTile(
+              leading: const Icon(Icons.queue_music),
+              title: Text(playlist.name),
+              onTap: () {
+                Navigator.of(sheetContext).pop();
+                db.addSongToPlaylist(playlist.id, song);
+              },
+            ),
+        ],
+      ),
+    ),
+  );
 }
 
 /// Naloži `songs` v queue in začne predvajati od `startIndex`, nato odpre
