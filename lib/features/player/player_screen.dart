@@ -5,12 +5,31 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../core/services/audio_player_providers.dart';
 import '../../core/services/media_library_providers.dart';
 import '../../core/services/playlist_providers.dart';
+import '../../core/services/sleep_timer_provider.dart';
 import '../../core/navigation/player_screen_visibility.dart';
 import '../../shared/widgets/song_artwork.dart';
 import '../library/edit_song_metadata_dialog.dart';
 
 /// Za koliko preskoči gumb "+5s"/"-5s".
 const _seekStep = Duration(seconds: 5);
+
+/// Ponujene dolžine sleep timerja v izbirnem dialogu (glej
+/// `_showSleepTimerDialog`).
+const _sleepTimerOptions = [
+  Duration(minutes: 15),
+  Duration(minutes: 30),
+  Duration(minutes: 45),
+  Duration(minutes: 60),
+];
+
+/// Formatira `mm:ss` (ali `h:mm:ss` za daljše trajanje, npr. sleep timer
+/// odštevanje) - skupna implementacija za `_SeekBar` in sleep timer badge.
+String _formatDuration(Duration d) {
+  final hours = d.inHours;
+  final minutes = d.inMinutes.remainder(60).toString().padLeft(2, '0');
+  final seconds = d.inSeconds.remainder(60).toString().padLeft(2, '0');
+  return hours > 0 ? '$hours:$minutes:$seconds' : '$minutes:$seconds';
+}
 
 /// Osnovni "now playing" zaslon: naslov/artist trenutne pesmi (+ priljubljena
 /// in uredi-metapodatke gumba), seek slider z ročnim nastavljanjem pozicije
@@ -50,9 +69,26 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen> {
     final playing = playbackState?.playing ?? false;
     final shuffleOn = playbackState?.shuffleMode == AudioServiceShuffleMode.all;
     final repeatMode = playbackState?.repeatMode ?? AudioServiceRepeatMode.none;
+    final sleepRemaining = ref.watch(sleepTimerProvider);
 
     return Scaffold(
-      appBar: AppBar(title: const Text('Predvajam')),
+      appBar: AppBar(
+        title: const Text('Predvajam'),
+        actions: [
+          IconButton(
+            icon: Icon(
+              sleepRemaining != null ? Icons.bedtime : Icons.bedtime_outlined,
+              color: sleepRemaining != null
+                  ? Theme.of(context).colorScheme.primary
+                  : null,
+            ),
+            tooltip: sleepRemaining != null
+                ? 'Sleep timer: ${_formatDuration(sleepRemaining)}'
+                : 'Sleep timer',
+            onPressed: () => _showSleepTimerDialog(context, ref, sleepRemaining),
+          ),
+        ],
+      ),
       body: Column(
         children: [
           const SizedBox(height: 24),
@@ -282,10 +318,37 @@ class _SeekBarState extends State<_SeekBar> {
       ),
     );
   }
+}
 
-  String _formatDuration(Duration d) {
-    final minutes = d.inMinutes.remainder(60).toString().padLeft(2, '0');
-    final seconds = d.inSeconds.remainder(60).toString().padLeft(2, '0');
-    return '$minutes:$seconds';
-  }
+/// Prikaže dialog za izbiro sleep timerja (15/30/45/60 min); če je timer že
+/// aktiven, ponudi namesto tega "Prekliči".
+Future<void> _showSleepTimerDialog(
+  BuildContext context,
+  WidgetRef ref,
+  Duration? currentRemaining,
+) {
+  return showDialog<void>(
+    context: context,
+    builder: (context) => SimpleDialog(
+      title: const Text('Sleep timer'),
+      children: [
+        if (currentRemaining != null)
+          SimpleDialogOption(
+            onPressed: () {
+              ref.read(sleepTimerProvider.notifier).cancel();
+              Navigator.of(context).pop();
+            },
+            child: const Text('Prekliči timer'),
+          ),
+        for (final duration in _sleepTimerOptions)
+          SimpleDialogOption(
+            onPressed: () {
+              ref.read(sleepTimerProvider.notifier).start(duration);
+              Navigator.of(context).pop();
+            },
+            child: Text('${duration.inMinutes} min'),
+          ),
+      ],
+    ),
+  );
 }
