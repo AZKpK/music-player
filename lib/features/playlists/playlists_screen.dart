@@ -4,8 +4,12 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../core/db/app_database.dart';
+import '../../core/models/song.dart';
 import '../../core/services/audio_player_providers.dart';
+import '../../core/services/media_library_providers.dart';
 import '../../core/services/playlist_providers.dart';
+import '../../shared/widgets/song_artwork.dart';
+import '../library/song_actions.dart';
 import '../player/player_screen.dart';
 
 /// Seznam uporabniških playlist (CRUD: ustvari/preimenuj/izbriši).
@@ -151,6 +155,7 @@ class PlaylistDetailScreen extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final songsAsync = ref.watch(playlistSongsProvider(playlist.id));
+    final overrides = ref.watch(songOverridesProvider).valueOrNull ?? const {};
 
     return Scaffold(
       appBar: AppBar(title: Text(playlist.name)),
@@ -163,21 +168,40 @@ class PlaylistDetailScreen extends ConsumerWidget {
               child: Text('Playlista je prazna - dodaj pesmi iz knjižnice'),
             );
           }
+          // Popravki (liked/naslovnica/ime...) so shranjeni po `songId`, ne
+          // po `PlaylistSong.id`, zato jih tu spojimo enako kot v
+          // `librarySongsProvider` - `applyOverride`.
+          final songs = rows
+              .map((row) => applyOverride(playlistSongToSong(row), overrides[row.songId]))
+              .toList();
           return ListView.builder(
             itemCount: rows.length,
             itemBuilder: (context, index) {
               final row = rows[index];
+              final song = songs[index];
               return ListTile(
-                leading: const Icon(Icons.music_note),
-                title: Text(row.title),
-                subtitle: Text(row.artist),
-                onTap: () => _playFrom(context, ref, rows, index),
-                trailing: IconButton(
-                  icon: const Icon(Icons.remove_circle_outline),
-                  tooltip: 'Odstrani iz playliste',
-                  onPressed: () => ref
-                      .read(appDatabaseProvider)
-                      .removeSongFromPlaylist(row.id),
+                leading: SongArtwork(song: song),
+                title: Text(song.title),
+                subtitle: Text(song.artist),
+                onTap: () => _playFrom(context, ref, songs, index),
+                trailing: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    if (song.liked)
+                      Icon(Icons.favorite, size: 18, color: Theme.of(context).colorScheme.primary),
+                    IconButton(
+                      icon: const Icon(Icons.more_vert),
+                      tooltip: 'Dejanja',
+                      onPressed: () => showSongActionsSheet(context, ref, song),
+                    ),
+                    IconButton(
+                      icon: const Icon(Icons.remove_circle_outline),
+                      tooltip: 'Odstrani iz playliste',
+                      onPressed: () => ref
+                          .read(appDatabaseProvider)
+                          .removeSongFromPlaylist(row.id),
+                    ),
+                  ],
                 ),
               );
             },
@@ -190,11 +214,10 @@ class PlaylistDetailScreen extends ConsumerWidget {
   Future<void> _playFrom(
     BuildContext context,
     WidgetRef ref,
-    List<PlaylistSong> rows,
+    List<Song> songs,
     int startIndex,
   ) async {
     final handler = ref.read(audioHandlerProvider);
-    final songs = rows.map(playlistSongToSong).toList();
     await handler.loadQueue(songs, initialIndex: startIndex);
     if (!context.mounted) return;
 

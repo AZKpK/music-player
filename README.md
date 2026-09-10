@@ -250,6 +250,70 @@ knjižnico nadomeščal ročni folder-scan (glej Faza 2.5 spodaj).
   now-playing zaslonu). `flutter analyze`/`flutter test`/
   `flutter build apk --debug` vsi prehajajo.
 
-### Faza 5+ — še ni začeto
-Play-history tracking, yearly wrap, bulk tagging, YouTube auto-download. Glej
-celoten plan v `/home/andra/.claude/plans/kako-te-ko-bi-bilo-ethereal-muffin.md`.
+### Faza 5 — MVP polish: album art, akcije nad pesmijo, ročni popravki metapodatkov ✅
+- `lib/core/models/song.dart` razširjen z `genre`, `year`, `trackNumber`
+  (mesto na albumu, za sortiranje), `liked` + `copyWith()` (vsi parametri
+  privzeto `null` → ohrani obstoječo vrednost preko `??`).
+- `lib/core/db/app_database.dart` — nova tabela `SongOverrides` (`songId` PK,
+  vsa ostala polja nullable — `null` pomeni "ni ročno urejeno, uporabi
+  MediaStore original"): `title`/`artist`/`album`/`genre`/`year`/
+  `trackNumber`/`liked`/`artworkPath`/`hidden`. `schemaVersion` 1 → 2 z
+  migracijo (`m.createTable(songOverrides)`). Nove metode: `watchAllOverrides()`
+  (Stream, ključan po `songId`), `upsertOverride()` (partial upsert preko
+  `insertOnConflictUpdate` — v companion podana polja se posodobijo, ostala
+  ostanejo nespremenjena), `setLiked()`, `hideSongEverywhere()` (nastavi
+  `hidden = true` + odstrani iz vseh playlist; dejansko brisanje datoteke z
+  diska je ločeno v UI plasti, DB razred namerno ne dostopa do datotečnega
+  sistema).
+- `lib/core/services/media_library_providers.dart` — `librarySongsProvider`
+  preimenovan v `rawLibrarySongsProvider` (drag MediaStore-scan, `FutureProvider`),
+  novi `songOverridesProvider` (`StreamProvider` nad `watchAllOverrides()`) in
+  `librarySongsProvider` (zdaj `Provider<AsyncValue<List<Song>>>`) — reaktivno
+  spoji raw knjižnico s popravki preko javne `applyOverride()` funkcije, brez
+  ponovnega MediaStore-scan-a ob vsakem uporabnikovem popravku. Skrite pesmi
+  (`hidden == true`) so izločene. Dodan `likedSongsProvider`.
+- `lib/core/services/audio_player_service.dart` — `AudioPlayerHandler.insertNext()`
+  vstavi pesem takoj za trenutno predvajano ("predvajaj naslednje"; prazen
+  queue → obnaša se kot `loadQueue`). `_songToMediaItem` zdaj propagira `genre`.
+- `lib/shared/widgets/song_artwork.dart` — `SongArtwork` widget: prednost ima
+  uporabniško nastavljena naslovnica (`song.artUri`, lokalna datoteka),
+  sicer `QueryArtworkWidget` (MediaStore artwork preko `on_audio_query`, samo
+  za pesmi z `id` oblike `media_store:<int>`), sicer privzeta ikona.
+- `lib/features/library/edit_song_metadata_dialog.dart` — `showEditSongMetadataDialog()`,
+  `Form` z naslov/izvajalec/album/žanr/leto/mesto-na-albumu, validacija
+  (naslov obvezen, leto/mesto morata biti število), shrani preko `upsertOverride()`.
+- `lib/features/library/song_actions.dart` — `showSongActionsSheet()`, bottom
+  sheet z vsemi akcijami nad eno pesmijo:
+  - **Predvajaj naslednje** — `handler.insertNext(song)`
+  - **Dodaj v playlisto** — `showAddToPlaylistSheet()` (premaknjeno sem iz
+    `library_screen.dart`, zdaj javno/deljeno tudi za playliste)
+  - **Priljubljena** — `setLiked(song.id, !song.liked)`, srček prikazan v
+    trailing-u vsake vrstice, ko je `song.liked == true`
+  - **Spremeni naslovnico** — `file_picker` (`FileType.image`), datoteka se
+    skopira v `getApplicationDocumentsDirectory()/artwork/` (trajna lokacija,
+    ne cache), pot shranjena preko `upsertOverride(artworkPath: ...)`
+  - **Uredi metapodatke** — odpre `showEditSongMetadataDialog()`
+  - **Izbriši** — confirm dialog, nato best-effort `File(song.filePath).delete()`
+    (scoped storage lahko brisanje zavrne za datoteke, ki jih app ni ustvaril —
+    v tem primeru se pesem vseeno skrije iz knjižnice, uporabnik dobi
+    opozorilo v snackbar-u) + `hideSongEverywhere(song.id)`
+- `lib/features/library/library_screen.dart` in
+  `lib/features/playlists/playlists_screen.dart` posodobljena: `SongArtwork`
+  kot leading v vseh seznamih pesmi (namesto generične ikone), srček za
+  priljubljene, tri-pikice gumb odpre `showSongActionsSheet()`. Albumi
+  (`_GroupedTab(sortByTrack: true)`) sortirajo pesmi po `trackNumber`
+  naraščajoče (brez track-a na konec, nato po naslovu) namesto po abecedi.
+  `PlaylistDetailScreen` spoji shranjeno `PlaylistSong` vrstico s trenutnimi
+  popravki preko iste `applyOverride()` funkcije (popravki so ključani po
+  `songId`, ne po `PlaylistSong.id`).
+- Preverjeno ročno na emulatorju: album art se prikaže v "Vse pesmi" (pravi
+  MediaStore artwork), akcijski meni se odpre in prikaže vseh 6 akcij,
+  "Priljubljena" takoj doda srček v seznam, "Uredi metapodatke" pravilno
+  predizpolni obstoječe vrednosti in shrani spremembo (mesto na albumu = 1),
+  "Albumi" zavihek se naloži brez napak. `flutter analyze`/`flutter test`/
+  `flutter build apk --debug` vsi prehajajo.
+
+### Faza 6+ — še ni začeto
+Play-history tracking, yearly wrap, bulk tagging (dejansko pisanje ID3 tagov
+nazaj v datoteke), YouTube auto-download. Glej celoten plan v
+`/home/andra/.claude/plans/kako-te-ko-bi-bilo-ethereal-muffin.md`.

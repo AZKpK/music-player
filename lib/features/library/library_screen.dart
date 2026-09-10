@@ -6,10 +6,11 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../core/models/song.dart';
 import '../../core/services/audio_player_providers.dart';
 import '../../core/services/media_library_providers.dart';
-import '../../core/services/playlist_providers.dart';
+import '../../shared/widgets/song_artwork.dart';
 import '../player/player_screen.dart';
 import '../playlists/playlists_screen.dart';
 import 'library_test_screen.dart';
+import 'song_actions.dart';
 
 /// Prava glasbena knjižnica z naprave (MediaStore preko `on_audio_query`),
 /// z zavihki za vse pesmi ter grupiranjem po izvajalcu/albumu.
@@ -55,7 +56,7 @@ class LibraryScreen extends ConsumerWidget {
           loading: () => const Center(child: CircularProgressIndicator()),
           error: (error, _) => _ErrorView(
             message: '$error',
-            onRetry: () => ref.invalidate(librarySongsProvider),
+            onRetry: () => ref.invalidate(rawLibrarySongsProvider),
           ),
           data: (songs) {
             if (songs.isEmpty) {
@@ -65,7 +66,7 @@ class LibraryScreen extends ConsumerWidget {
               children: [
                 _AllSongsTab(songs: songs),
                 _GroupedTab(groupsProvider: songsByArtistProvider),
-                _GroupedTab(groupsProvider: songsByAlbumProvider),
+                _GroupedTab(groupsProvider: songsByAlbumProvider, sortByTrack: true),
               ],
             );
           },
@@ -108,14 +109,21 @@ class _AllSongsTab extends ConsumerWidget {
       itemBuilder: (context, index) {
         final song = songs[index];
         return ListTile(
-          leading: const Icon(Icons.music_note),
+          leading: SongArtwork(song: song),
           title: Text(song.title),
           subtitle: Text(song.artist),
           onTap: () => _playFrom(context, ref, songs, index),
-          trailing: IconButton(
-            icon: const Icon(Icons.playlist_add),
-            tooltip: 'Dodaj v playlisto',
-            onPressed: () => _showAddToPlaylistSheet(context, ref, song),
+          trailing: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              if (song.liked)
+                Icon(Icons.favorite, size: 18, color: Theme.of(context).colorScheme.primary),
+              IconButton(
+                icon: const Icon(Icons.more_vert),
+                tooltip: 'Dejanja',
+                onPressed: () => showSongActionsSheet(context, ref, song),
+              ),
+            ],
           ),
         );
       },
@@ -126,9 +134,13 @@ class _AllSongsTab extends ConsumerWidget {
 /// Zavihek "Izvajalci"/"Albumi" - najprej seznam skupin, tap odpre pesmi
 /// znotraj izbrane skupine.
 class _GroupedTab extends ConsumerWidget {
-  const _GroupedTab({required this.groupsProvider});
+  const _GroupedTab({required this.groupsProvider, this.sortByTrack = false});
 
   final ProviderListenable<AsyncValue<Map<String, List<Song>>>> groupsProvider;
+
+  /// Za "Albumi" razvrsti pesmi znotraj skupine po `trackNumber` (mesto na
+  /// albumu) namesto po abecedi - glej `_sortGroupSongs`.
+  final bool sortByTrack;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -149,7 +161,10 @@ class _GroupedTab extends ConsumerWidget {
               subtitle: Text('${groupSongs.length} pesmi'),
               onTap: () => Navigator.of(context).push(
                 MaterialPageRoute(
-                  builder: (_) => _GroupSongsScreen(title: name, songs: groupSongs),
+                  builder: (_) => _GroupSongsScreen(
+                    title: name,
+                    songs: sortByTrack ? _sortGroupSongs(groupSongs) : groupSongs,
+                  ),
                 ),
               ),
             );
@@ -158,6 +173,22 @@ class _GroupedTab extends ConsumerWidget {
       },
     );
   }
+}
+
+/// Sortira pesmi po `trackNumber` naraščajoče (brez trackNumber-ja gredo na
+/// konec), nato po naslovu - da album prikaže pesmi v pravem vrstnem redu
+/// (1., 2. ...) namesto po abecedi.
+List<Song> _sortGroupSongs(List<Song> songs) {
+  final sorted = [...songs];
+  sorted.sort((a, b) {
+    final trackA = a.trackNumber;
+    final trackB = b.trackNumber;
+    if (trackA == null && trackB == null) return a.title.compareTo(b.title);
+    if (trackA == null) return 1;
+    if (trackB == null) return -1;
+    return trackA.compareTo(trackB);
+  });
+  return sorted;
 }
 
 class _GroupSongsScreen extends ConsumerWidget {
@@ -175,87 +206,27 @@ class _GroupSongsScreen extends ConsumerWidget {
         itemBuilder: (context, index) {
           final song = songs[index];
           return ListTile(
-            leading: const Icon(Icons.music_note),
+            leading: SongArtwork(song: song),
             title: Text(song.title),
             subtitle: Text(song.artist),
             onTap: () => _playFrom(context, ref, songs, index),
-            trailing: IconButton(
-              icon: const Icon(Icons.playlist_add),
-              tooltip: 'Dodaj v playlisto',
-              onPressed: () => _showAddToPlaylistSheet(context, ref, song),
+            trailing: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                if (song.liked)
+                  Icon(Icons.favorite, size: 18, color: Theme.of(context).colorScheme.primary),
+                IconButton(
+                  icon: const Icon(Icons.more_vert),
+                  tooltip: 'Dejanja',
+                  onPressed: () => showSongActionsSheet(context, ref, song),
+                ),
+              ],
             ),
           );
         },
       ),
     );
   }
-}
-
-/// Prikaže bottom sheet z obstoječimi playlistami (+ možnost ustvarjanja
-/// nove) in dodane `song` v izbrano.
-Future<void> _showAddToPlaylistSheet(
-  BuildContext context,
-  WidgetRef ref,
-  Song song,
-) async {
-  final playlists = await ref.read(playlistsProvider.future);
-  if (!context.mounted) return;
-
-  final db = ref.read(appDatabaseProvider);
-
-  await showModalBottomSheet<void>(
-    context: context,
-    builder: (sheetContext) => SafeArea(
-      child: ListView(
-        shrinkWrap: true,
-        children: [
-          ListTile(
-            leading: const Icon(Icons.add),
-            title: const Text('Nova playlista...'),
-            onTap: () async {
-              Navigator.of(sheetContext).pop();
-              final controller = TextEditingController();
-              final name = await showDialog<String>(
-                context: context,
-                builder: (dialogContext) => AlertDialog(
-                  title: const Text('Nova playlista'),
-                  content: TextField(
-                    controller: controller,
-                    autofocus: true,
-                    decoration: const InputDecoration(hintText: 'Ime playliste'),
-                  ),
-                  actions: [
-                    TextButton(
-                      onPressed: () => Navigator.of(dialogContext).pop(),
-                      child: const Text('Prekliči'),
-                    ),
-                    TextButton(
-                      onPressed: () =>
-                          Navigator.of(dialogContext).pop(controller.text.trim()),
-                      child: const Text('Ustvari'),
-                    ),
-                  ],
-                ),
-              );
-              if (name == null || name.isEmpty) return;
-              final id = await db.createPlaylist(name);
-              await db.addSongToPlaylist(id, song);
-            },
-          ),
-          if (playlists.isNotEmpty) const Divider(height: 1),
-          for (final playlist in playlists)
-            ListTile(
-              leading: const Icon(Icons.queue_music),
-              title: Text(playlist.name),
-              onTap: () {
-                Navigator.of(sheetContext).pop();
-                db.addSongToPlaylist(playlist.id, song);
-              },
-            ),
-        ],
-      ),
-    ),
-  );
 }
 
 /// Naloži `songs` v queue in začne predvajati od `startIndex`, nato odpre

@@ -58,6 +58,19 @@ class AudioPlayerHandler extends BaseAudioHandler
     await _playlist.add(_songToAudioSource(song));
   }
 
+  /// Vstavi pesem takoj za trenutno predvajano ("predvajaj naslednje"). Če
+  /// queue trenutno prazen, se obnaša enako kot [loadQueue] z eno pesmijo.
+  Future<void> insertNext(Song song) async {
+    if (queue.value.isEmpty) {
+      await loadQueue([song]);
+      return;
+    }
+    final insertIndex = (_player.currentIndex ?? 0) + 1;
+    final updatedQueue = [...queue.value]..insert(insertIndex, _songToMediaItem(song));
+    queue.add(updatedQueue);
+    await _playlist.insert(insertIndex, _songToAudioSource(song));
+  }
+
   @override
   Future<void> play() => _player.play();
 
@@ -144,6 +157,7 @@ class AudioPlayerHandler extends BaseAudioHandler
         title: song.title,
         artist: song.artist,
         album: song.album,
+        genre: song.genre,
         duration: song.duration,
         artUri: song.artUri,
       );

@@ -799,11 +799,630 @@ class PlaylistSongsCompanion extends UpdateCompanion<PlaylistSong> {
   }
 }
 
+class $SongOverridesTable extends SongOverrides
+    with TableInfo<$SongOverridesTable, SongOverride> {
+  @override
+  final GeneratedDatabase attachedDatabase;
+  final String? _alias;
+  $SongOverridesTable(this.attachedDatabase, [this._alias]);
+  static const VerificationMeta _songIdMeta = const VerificationMeta('songId');
+  @override
+  late final GeneratedColumn<String> songId = GeneratedColumn<String>(
+    'song_id',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _titleMeta = const VerificationMeta('title');
+  @override
+  late final GeneratedColumn<String> title = GeneratedColumn<String>(
+    'title',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _artistMeta = const VerificationMeta('artist');
+  @override
+  late final GeneratedColumn<String> artist = GeneratedColumn<String>(
+    'artist',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _albumMeta = const VerificationMeta('album');
+  @override
+  late final GeneratedColumn<String> album = GeneratedColumn<String>(
+    'album',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _genreMeta = const VerificationMeta('genre');
+  @override
+  late final GeneratedColumn<String> genre = GeneratedColumn<String>(
+    'genre',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _yearMeta = const VerificationMeta('year');
+  @override
+  late final GeneratedColumn<int> year = GeneratedColumn<int>(
+    'year',
+    aliasedName,
+    true,
+    type: DriftSqlType.int,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _trackNumberMeta = const VerificationMeta(
+    'trackNumber',
+  );
+  @override
+  late final GeneratedColumn<int> trackNumber = GeneratedColumn<int>(
+    'track_number',
+    aliasedName,
+    true,
+    type: DriftSqlType.int,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _likedMeta = const VerificationMeta('liked');
+  @override
+  late final GeneratedColumn<bool> liked = GeneratedColumn<bool>(
+    'liked',
+    aliasedName,
+    false,
+    type: DriftSqlType.bool,
+    requiredDuringInsert: false,
+    defaultConstraints: GeneratedColumn.constraintIsAlways(
+      'CHECK ("liked" IN (0, 1))',
+    ),
+    defaultValue: const Constant(false),
+  );
+  static const VerificationMeta _artworkPathMeta = const VerificationMeta(
+    'artworkPath',
+  );
+  @override
+  late final GeneratedColumn<String> artworkPath = GeneratedColumn<String>(
+    'artwork_path',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _hiddenMeta = const VerificationMeta('hidden');
+  @override
+  late final GeneratedColumn<bool> hidden = GeneratedColumn<bool>(
+    'hidden',
+    aliasedName,
+    false,
+    type: DriftSqlType.bool,
+    requiredDuringInsert: false,
+    defaultConstraints: GeneratedColumn.constraintIsAlways(
+      'CHECK ("hidden" IN (0, 1))',
+    ),
+    defaultValue: const Constant(false),
+  );
+  @override
+  List<GeneratedColumn> get $columns => [
+    songId,
+    title,
+    artist,
+    album,
+    genre,
+    year,
+    trackNumber,
+    liked,
+    artworkPath,
+    hidden,
+  ];
+  @override
+  String get aliasedName => _alias ?? actualTableName;
+  @override
+  String get actualTableName => $name;
+  static const String $name = 'song_overrides';
+  @override
+  VerificationContext validateIntegrity(
+    Insertable<SongOverride> instance, {
+    bool isInserting = false,
+  }) {
+    final context = VerificationContext();
+    final data = instance.toColumns(true);
+    if (data.containsKey('song_id')) {
+      context.handle(
+        _songIdMeta,
+        songId.isAcceptableOrUnknown(data['song_id']!, _songIdMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_songIdMeta);
+    }
+    if (data.containsKey('title')) {
+      context.handle(
+        _titleMeta,
+        title.isAcceptableOrUnknown(data['title']!, _titleMeta),
+      );
+    }
+    if (data.containsKey('artist')) {
+      context.handle(
+        _artistMeta,
+        artist.isAcceptableOrUnknown(data['artist']!, _artistMeta),
+      );
+    }
+    if (data.containsKey('album')) {
+      context.handle(
+        _albumMeta,
+        album.isAcceptableOrUnknown(data['album']!, _albumMeta),
+      );
+    }
+    if (data.containsKey('genre')) {
+      context.handle(
+        _genreMeta,
+        genre.isAcceptableOrUnknown(data['genre']!, _genreMeta),
+      );
+    }
+    if (data.containsKey('year')) {
+      context.handle(
+        _yearMeta,
+        year.isAcceptableOrUnknown(data['year']!, _yearMeta),
+      );
+    }
+    if (data.containsKey('track_number')) {
+      context.handle(
+        _trackNumberMeta,
+        trackNumber.isAcceptableOrUnknown(
+          data['track_number']!,
+          _trackNumberMeta,
+        ),
+      );
+    }
+    if (data.containsKey('liked')) {
+      context.handle(
+        _likedMeta,
+        liked.isAcceptableOrUnknown(data['liked']!, _likedMeta),
+      );
+    }
+    if (data.containsKey('artwork_path')) {
+      context.handle(
+        _artworkPathMeta,
+        artworkPath.isAcceptableOrUnknown(
+          data['artwork_path']!,
+          _artworkPathMeta,
+        ),
+      );
+    }
+    if (data.containsKey('hidden')) {
+      context.handle(
+        _hiddenMeta,
+        hidden.isAcceptableOrUnknown(data['hidden']!, _hiddenMeta),
+      );
+    }
+    return context;
+  }
+
+  @override
+  Set<GeneratedColumn> get $primaryKey => {songId};
+  @override
+  SongOverride map(Map<String, dynamic> data, {String? tablePrefix}) {
+    final effectivePrefix = tablePrefix != null ? '$tablePrefix.' : '';
+    return SongOverride(
+      songId: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}song_id'],
+      )!,
+      title: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}title'],
+      ),
+      artist: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}artist'],
+      ),
+      album: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}album'],
+      ),
+      genre: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}genre'],
+      ),
+      year: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}year'],
+      ),
+      trackNumber: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}track_number'],
+      ),
+      liked: attachedDatabase.typeMapping.read(
+        DriftSqlType.bool,
+        data['${effectivePrefix}liked'],
+      )!,
+      artworkPath: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}artwork_path'],
+      ),
+      hidden: attachedDatabase.typeMapping.read(
+        DriftSqlType.bool,
+        data['${effectivePrefix}hidden'],
+      )!,
+    );
+  }
+
+  @override
+  $SongOverridesTable createAlias(String alias) {
+    return $SongOverridesTable(attachedDatabase, alias);
+  }
+}
+
+class SongOverride extends DataClass implements Insertable<SongOverride> {
+  final String songId;
+  final String? title;
+  final String? artist;
+  final String? album;
+  final String? genre;
+  final int? year;
+  final int? trackNumber;
+  final bool liked;
+  final String? artworkPath;
+
+  /// Pesem je bila izbrisana preko app-a (glej `hideSong`) - filtriramo jo
+  /// iz knjižnice ne glede na to, ali MediaStore še vrača (stale) zapis
+  /// zanjo (indeks se osveži šele ob naslednjem media scan-u).
+  final bool hidden;
+  const SongOverride({
+    required this.songId,
+    this.title,
+    this.artist,
+    this.album,
+    this.genre,
+    this.year,
+    this.trackNumber,
+    required this.liked,
+    this.artworkPath,
+    required this.hidden,
+  });
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    map['song_id'] = Variable<String>(songId);
+    if (!nullToAbsent || title != null) {
+      map['title'] = Variable<String>(title);
+    }
+    if (!nullToAbsent || artist != null) {
+      map['artist'] = Variable<String>(artist);
+    }
+    if (!nullToAbsent || album != null) {
+      map['album'] = Variable<String>(album);
+    }
+    if (!nullToAbsent || genre != null) {
+      map['genre'] = Variable<String>(genre);
+    }
+    if (!nullToAbsent || year != null) {
+      map['year'] = Variable<int>(year);
+    }
+    if (!nullToAbsent || trackNumber != null) {
+      map['track_number'] = Variable<int>(trackNumber);
+    }
+    map['liked'] = Variable<bool>(liked);
+    if (!nullToAbsent || artworkPath != null) {
+      map['artwork_path'] = Variable<String>(artworkPath);
+    }
+    map['hidden'] = Variable<bool>(hidden);
+    return map;
+  }
+
+  SongOverridesCompanion toCompanion(bool nullToAbsent) {
+    return SongOverridesCompanion(
+      songId: Value(songId),
+      title: title == null && nullToAbsent
+          ? const Value.absent()
+          : Value(title),
+      artist: artist == null && nullToAbsent
+          ? const Value.absent()
+          : Value(artist),
+      album: album == null && nullToAbsent
+          ? const Value.absent()
+          : Value(album),
+      genre: genre == null && nullToAbsent
+          ? const Value.absent()
+          : Value(genre),
+      year: year == null && nullToAbsent ? const Value.absent() : Value(year),
+      trackNumber: trackNumber == null && nullToAbsent
+          ? const Value.absent()
+          : Value(trackNumber),
+      liked: Value(liked),
+      artworkPath: artworkPath == null && nullToAbsent
+          ? const Value.absent()
+          : Value(artworkPath),
+      hidden: Value(hidden),
+    );
+  }
+
+  factory SongOverride.fromJson(
+    Map<String, dynamic> json, {
+    ValueSerializer? serializer,
+  }) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return SongOverride(
+      songId: serializer.fromJson<String>(json['songId']),
+      title: serializer.fromJson<String?>(json['title']),
+      artist: serializer.fromJson<String?>(json['artist']),
+      album: serializer.fromJson<String?>(json['album']),
+      genre: serializer.fromJson<String?>(json['genre']),
+      year: serializer.fromJson<int?>(json['year']),
+      trackNumber: serializer.fromJson<int?>(json['trackNumber']),
+      liked: serializer.fromJson<bool>(json['liked']),
+      artworkPath: serializer.fromJson<String?>(json['artworkPath']),
+      hidden: serializer.fromJson<bool>(json['hidden']),
+    );
+  }
+  @override
+  Map<String, dynamic> toJson({ValueSerializer? serializer}) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return <String, dynamic>{
+      'songId': serializer.toJson<String>(songId),
+      'title': serializer.toJson<String?>(title),
+      'artist': serializer.toJson<String?>(artist),
+      'album': serializer.toJson<String?>(album),
+      'genre': serializer.toJson<String?>(genre),
+      'year': serializer.toJson<int?>(year),
+      'trackNumber': serializer.toJson<int?>(trackNumber),
+      'liked': serializer.toJson<bool>(liked),
+      'artworkPath': serializer.toJson<String?>(artworkPath),
+      'hidden': serializer.toJson<bool>(hidden),
+    };
+  }
+
+  SongOverride copyWith({
+    String? songId,
+    Value<String?> title = const Value.absent(),
+    Value<String?> artist = const Value.absent(),
+    Value<String?> album = const Value.absent(),
+    Value<String?> genre = const Value.absent(),
+    Value<int?> year = const Value.absent(),
+    Value<int?> trackNumber = const Value.absent(),
+    bool? liked,
+    Value<String?> artworkPath = const Value.absent(),
+    bool? hidden,
+  }) => SongOverride(
+    songId: songId ?? this.songId,
+    title: title.present ? title.value : this.title,
+    artist: artist.present ? artist.value : this.artist,
+    album: album.present ? album.value : this.album,
+    genre: genre.present ? genre.value : this.genre,
+    year: year.present ? year.value : this.year,
+    trackNumber: trackNumber.present ? trackNumber.value : this.trackNumber,
+    liked: liked ?? this.liked,
+    artworkPath: artworkPath.present ? artworkPath.value : this.artworkPath,
+    hidden: hidden ?? this.hidden,
+  );
+  SongOverride copyWithCompanion(SongOverridesCompanion data) {
+    return SongOverride(
+      songId: data.songId.present ? data.songId.value : this.songId,
+      title: data.title.present ? data.title.value : this.title,
+      artist: data.artist.present ? data.artist.value : this.artist,
+      album: data.album.present ? data.album.value : this.album,
+      genre: data.genre.present ? data.genre.value : this.genre,
+      year: data.year.present ? data.year.value : this.year,
+      trackNumber: data.trackNumber.present
+          ? data.trackNumber.value
+          : this.trackNumber,
+      liked: data.liked.present ? data.liked.value : this.liked,
+      artworkPath: data.artworkPath.present
+          ? data.artworkPath.value
+          : this.artworkPath,
+      hidden: data.hidden.present ? data.hidden.value : this.hidden,
+    );
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('SongOverride(')
+          ..write('songId: $songId, ')
+          ..write('title: $title, ')
+          ..write('artist: $artist, ')
+          ..write('album: $album, ')
+          ..write('genre: $genre, ')
+          ..write('year: $year, ')
+          ..write('trackNumber: $trackNumber, ')
+          ..write('liked: $liked, ')
+          ..write('artworkPath: $artworkPath, ')
+          ..write('hidden: $hidden')
+          ..write(')'))
+        .toString();
+  }
+
+  @override
+  int get hashCode => Object.hash(
+    songId,
+    title,
+    artist,
+    album,
+    genre,
+    year,
+    trackNumber,
+    liked,
+    artworkPath,
+    hidden,
+  );
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      (other is SongOverride &&
+          other.songId == this.songId &&
+          other.title == this.title &&
+          other.artist == this.artist &&
+          other.album == this.album &&
+          other.genre == this.genre &&
+          other.year == this.year &&
+          other.trackNumber == this.trackNumber &&
+          other.liked == this.liked &&
+          other.artworkPath == this.artworkPath &&
+          other.hidden == this.hidden);
+}
+
+class SongOverridesCompanion extends UpdateCompanion<SongOverride> {
+  final Value<String> songId;
+  final Value<String?> title;
+  final Value<String?> artist;
+  final Value<String?> album;
+  final Value<String?> genre;
+  final Value<int?> year;
+  final Value<int?> trackNumber;
+  final Value<bool> liked;
+  final Value<String?> artworkPath;
+  final Value<bool> hidden;
+  final Value<int> rowid;
+  const SongOverridesCompanion({
+    this.songId = const Value.absent(),
+    this.title = const Value.absent(),
+    this.artist = const Value.absent(),
+    this.album = const Value.absent(),
+    this.genre = const Value.absent(),
+    this.year = const Value.absent(),
+    this.trackNumber = const Value.absent(),
+    this.liked = const Value.absent(),
+    this.artworkPath = const Value.absent(),
+    this.hidden = const Value.absent(),
+    this.rowid = const Value.absent(),
+  });
+  SongOverridesCompanion.insert({
+    required String songId,
+    this.title = const Value.absent(),
+    this.artist = const Value.absent(),
+    this.album = const Value.absent(),
+    this.genre = const Value.absent(),
+    this.year = const Value.absent(),
+    this.trackNumber = const Value.absent(),
+    this.liked = const Value.absent(),
+    this.artworkPath = const Value.absent(),
+    this.hidden = const Value.absent(),
+    this.rowid = const Value.absent(),
+  }) : songId = Value(songId);
+  static Insertable<SongOverride> custom({
+    Expression<String>? songId,
+    Expression<String>? title,
+    Expression<String>? artist,
+    Expression<String>? album,
+    Expression<String>? genre,
+    Expression<int>? year,
+    Expression<int>? trackNumber,
+    Expression<bool>? liked,
+    Expression<String>? artworkPath,
+    Expression<bool>? hidden,
+    Expression<int>? rowid,
+  }) {
+    return RawValuesInsertable({
+      if (songId != null) 'song_id': songId,
+      if (title != null) 'title': title,
+      if (artist != null) 'artist': artist,
+      if (album != null) 'album': album,
+      if (genre != null) 'genre': genre,
+      if (year != null) 'year': year,
+      if (trackNumber != null) 'track_number': trackNumber,
+      if (liked != null) 'liked': liked,
+      if (artworkPath != null) 'artwork_path': artworkPath,
+      if (hidden != null) 'hidden': hidden,
+      if (rowid != null) 'rowid': rowid,
+    });
+  }
+
+  SongOverridesCompanion copyWith({
+    Value<String>? songId,
+    Value<String?>? title,
+    Value<String?>? artist,
+    Value<String?>? album,
+    Value<String?>? genre,
+    Value<int?>? year,
+    Value<int?>? trackNumber,
+    Value<bool>? liked,
+    Value<String?>? artworkPath,
+    Value<bool>? hidden,
+    Value<int>? rowid,
+  }) {
+    return SongOverridesCompanion(
+      songId: songId ?? this.songId,
+      title: title ?? this.title,
+      artist: artist ?? this.artist,
+      album: album ?? this.album,
+      genre: genre ?? this.genre,
+      year: year ?? this.year,
+      trackNumber: trackNumber ?? this.trackNumber,
+      liked: liked ?? this.liked,
+      artworkPath: artworkPath ?? this.artworkPath,
+      hidden: hidden ?? this.hidden,
+      rowid: rowid ?? this.rowid,
+    );
+  }
+
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    if (songId.present) {
+      map['song_id'] = Variable<String>(songId.value);
+    }
+    if (title.present) {
+      map['title'] = Variable<String>(title.value);
+    }
+    if (artist.present) {
+      map['artist'] = Variable<String>(artist.value);
+    }
+    if (album.present) {
+      map['album'] = Variable<String>(album.value);
+    }
+    if (genre.present) {
+      map['genre'] = Variable<String>(genre.value);
+    }
+    if (year.present) {
+      map['year'] = Variable<int>(year.value);
+    }
+    if (trackNumber.present) {
+      map['track_number'] = Variable<int>(trackNumber.value);
+    }
+    if (liked.present) {
+      map['liked'] = Variable<bool>(liked.value);
+    }
+    if (artworkPath.present) {
+      map['artwork_path'] = Variable<String>(artworkPath.value);
+    }
+    if (hidden.present) {
+      map['hidden'] = Variable<bool>(hidden.value);
+    }
+    if (rowid.present) {
+      map['rowid'] = Variable<int>(rowid.value);
+    }
+    return map;
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('SongOverridesCompanion(')
+          ..write('songId: $songId, ')
+          ..write('title: $title, ')
+          ..write('artist: $artist, ')
+          ..write('album: $album, ')
+          ..write('genre: $genre, ')
+          ..write('year: $year, ')
+          ..write('trackNumber: $trackNumber, ')
+          ..write('liked: $liked, ')
+          ..write('artworkPath: $artworkPath, ')
+          ..write('hidden: $hidden, ')
+          ..write('rowid: $rowid')
+          ..write(')'))
+        .toString();
+  }
+}
+
 abstract class _$AppDatabase extends GeneratedDatabase {
   _$AppDatabase(QueryExecutor e) : super(e);
   $AppDatabaseManager get managers => $AppDatabaseManager(this);
   late final $PlaylistsTable playlists = $PlaylistsTable(this);
   late final $PlaylistSongsTable playlistSongs = $PlaylistSongsTable(this);
+  late final $SongOverridesTable songOverrides = $SongOverridesTable(this);
   @override
   Iterable<TableInfo<Table, Object?>> get allTables =>
       allSchemaEntities.whereType<TableInfo<Table, Object?>>();
@@ -811,6 +1430,7 @@ abstract class _$AppDatabase extends GeneratedDatabase {
   List<DatabaseSchemaEntity> get allSchemaEntities => [
     playlists,
     playlistSongs,
+    songOverrides,
   ];
   @override
   StreamQueryUpdateRules get streamUpdateRules => const StreamQueryUpdateRules([
@@ -1478,6 +2098,305 @@ typedef $$PlaylistSongsTableProcessedTableManager =
       PlaylistSong,
       PrefetchHooks Function({bool playlistId})
     >;
+typedef $$SongOverridesTableCreateCompanionBuilder =
+    SongOverridesCompanion Function({
+      required String songId,
+      Value<String?> title,
+      Value<String?> artist,
+      Value<String?> album,
+      Value<String?> genre,
+      Value<int?> year,
+      Value<int?> trackNumber,
+      Value<bool> liked,
+      Value<String?> artworkPath,
+      Value<bool> hidden,
+      Value<int> rowid,
+    });
+typedef $$SongOverridesTableUpdateCompanionBuilder =
+    SongOverridesCompanion Function({
+      Value<String> songId,
+      Value<String?> title,
+      Value<String?> artist,
+      Value<String?> album,
+      Value<String?> genre,
+      Value<int?> year,
+      Value<int?> trackNumber,
+      Value<bool> liked,
+      Value<String?> artworkPath,
+      Value<bool> hidden,
+      Value<int> rowid,
+    });
+
+class $$SongOverridesTableFilterComposer
+    extends Composer<_$AppDatabase, $SongOverridesTable> {
+  $$SongOverridesTableFilterComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnFilters<String> get songId => $composableBuilder(
+    column: $table.songId,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get title => $composableBuilder(
+    column: $table.title,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get artist => $composableBuilder(
+    column: $table.artist,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get album => $composableBuilder(
+    column: $table.album,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get genre => $composableBuilder(
+    column: $table.genre,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get year => $composableBuilder(
+    column: $table.year,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get trackNumber => $composableBuilder(
+    column: $table.trackNumber,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<bool> get liked => $composableBuilder(
+    column: $table.liked,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get artworkPath => $composableBuilder(
+    column: $table.artworkPath,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<bool> get hidden => $composableBuilder(
+    column: $table.hidden,
+    builder: (column) => ColumnFilters(column),
+  );
+}
+
+class $$SongOverridesTableOrderingComposer
+    extends Composer<_$AppDatabase, $SongOverridesTable> {
+  $$SongOverridesTableOrderingComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnOrderings<String> get songId => $composableBuilder(
+    column: $table.songId,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get title => $composableBuilder(
+    column: $table.title,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get artist => $composableBuilder(
+    column: $table.artist,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get album => $composableBuilder(
+    column: $table.album,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get genre => $composableBuilder(
+    column: $table.genre,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<int> get year => $composableBuilder(
+    column: $table.year,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<int> get trackNumber => $composableBuilder(
+    column: $table.trackNumber,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<bool> get liked => $composableBuilder(
+    column: $table.liked,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get artworkPath => $composableBuilder(
+    column: $table.artworkPath,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<bool> get hidden => $composableBuilder(
+    column: $table.hidden,
+    builder: (column) => ColumnOrderings(column),
+  );
+}
+
+class $$SongOverridesTableAnnotationComposer
+    extends Composer<_$AppDatabase, $SongOverridesTable> {
+  $$SongOverridesTableAnnotationComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  GeneratedColumn<String> get songId =>
+      $composableBuilder(column: $table.songId, builder: (column) => column);
+
+  GeneratedColumn<String> get title =>
+      $composableBuilder(column: $table.title, builder: (column) => column);
+
+  GeneratedColumn<String> get artist =>
+      $composableBuilder(column: $table.artist, builder: (column) => column);
+
+  GeneratedColumn<String> get album =>
+      $composableBuilder(column: $table.album, builder: (column) => column);
+
+  GeneratedColumn<String> get genre =>
+      $composableBuilder(column: $table.genre, builder: (column) => column);
+
+  GeneratedColumn<int> get year =>
+      $composableBuilder(column: $table.year, builder: (column) => column);
+
+  GeneratedColumn<int> get trackNumber => $composableBuilder(
+    column: $table.trackNumber,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<bool> get liked =>
+      $composableBuilder(column: $table.liked, builder: (column) => column);
+
+  GeneratedColumn<String> get artworkPath => $composableBuilder(
+    column: $table.artworkPath,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<bool> get hidden =>
+      $composableBuilder(column: $table.hidden, builder: (column) => column);
+}
+
+class $$SongOverridesTableTableManager
+    extends
+        RootTableManager<
+          _$AppDatabase,
+          $SongOverridesTable,
+          SongOverride,
+          $$SongOverridesTableFilterComposer,
+          $$SongOverridesTableOrderingComposer,
+          $$SongOverridesTableAnnotationComposer,
+          $$SongOverridesTableCreateCompanionBuilder,
+          $$SongOverridesTableUpdateCompanionBuilder,
+          (
+            SongOverride,
+            BaseReferences<_$AppDatabase, $SongOverridesTable, SongOverride>,
+          ),
+          SongOverride,
+          PrefetchHooks Function()
+        > {
+  $$SongOverridesTableTableManager(_$AppDatabase db, $SongOverridesTable table)
+    : super(
+        TableManagerState(
+          db: db,
+          table: table,
+          createFilteringComposer: () =>
+              $$SongOverridesTableFilterComposer($db: db, $table: table),
+          createOrderingComposer: () =>
+              $$SongOverridesTableOrderingComposer($db: db, $table: table),
+          createComputedFieldComposer: () =>
+              $$SongOverridesTableAnnotationComposer($db: db, $table: table),
+          updateCompanionCallback:
+              ({
+                Value<String> songId = const Value.absent(),
+                Value<String?> title = const Value.absent(),
+                Value<String?> artist = const Value.absent(),
+                Value<String?> album = const Value.absent(),
+                Value<String?> genre = const Value.absent(),
+                Value<int?> year = const Value.absent(),
+                Value<int?> trackNumber = const Value.absent(),
+                Value<bool> liked = const Value.absent(),
+                Value<String?> artworkPath = const Value.absent(),
+                Value<bool> hidden = const Value.absent(),
+                Value<int> rowid = const Value.absent(),
+              }) => SongOverridesCompanion(
+                songId: songId,
+                title: title,
+                artist: artist,
+                album: album,
+                genre: genre,
+                year: year,
+                trackNumber: trackNumber,
+                liked: liked,
+                artworkPath: artworkPath,
+                hidden: hidden,
+                rowid: rowid,
+              ),
+          createCompanionCallback:
+              ({
+                required String songId,
+                Value<String?> title = const Value.absent(),
+                Value<String?> artist = const Value.absent(),
+                Value<String?> album = const Value.absent(),
+                Value<String?> genre = const Value.absent(),
+                Value<int?> year = const Value.absent(),
+                Value<int?> trackNumber = const Value.absent(),
+                Value<bool> liked = const Value.absent(),
+                Value<String?> artworkPath = const Value.absent(),
+                Value<bool> hidden = const Value.absent(),
+                Value<int> rowid = const Value.absent(),
+              }) => SongOverridesCompanion.insert(
+                songId: songId,
+                title: title,
+                artist: artist,
+                album: album,
+                genre: genre,
+                year: year,
+                trackNumber: trackNumber,
+                liked: liked,
+                artworkPath: artworkPath,
+                hidden: hidden,
+                rowid: rowid,
+              ),
+          withReferenceMapper: (p0) => p0
+              .map((e) => (e.readTable(table), BaseReferences(db, table, e)))
+              .toList(),
+          prefetchHooksCallback: null,
+        ),
+      );
+}
+
+typedef $$SongOverridesTableProcessedTableManager =
+    ProcessedTableManager<
+      _$AppDatabase,
+      $SongOverridesTable,
+      SongOverride,
+      $$SongOverridesTableFilterComposer,
+      $$SongOverridesTableOrderingComposer,
+      $$SongOverridesTableAnnotationComposer,
+      $$SongOverridesTableCreateCompanionBuilder,
+      $$SongOverridesTableUpdateCompanionBuilder,
+      (
+        SongOverride,
+        BaseReferences<_$AppDatabase, $SongOverridesTable, SongOverride>,
+      ),
+      SongOverride,
+      PrefetchHooks Function()
+    >;
 
 class $AppDatabaseManager {
   final _$AppDatabase _db;
@@ -1486,4 +2405,6 @@ class $AppDatabaseManager {
       $$PlaylistsTableTableManager(_db, _db.playlists);
   $$PlaylistSongsTableTableManager get playlistSongs =>
       $$PlaylistSongsTableTableManager(_db, _db.playlistSongs);
+  $$SongOverridesTableTableManager get songOverrides =>
+      $$SongOverridesTableTableManager(_db, _db.songOverrides);
 }

@@ -34,13 +34,49 @@ class PlaylistSongs extends Table {
   IntColumn get durationMs => integer().nullable()();
 }
 
-@DriftDatabase(tables: [Playlists, PlaylistSongs])
+/// Uporabniško ročno urejeni podatki o eni pesmi (naslov/album/artist/genre/
+/// leto/track number/liked/naslovnica), ki nadgradijo/prepišejo osnovne
+/// podatke iz MediaStore (glej `media_library_providers.dart` -
+/// `librarySongsProvider` združi to tabelo z rezultati `on_audio_query`-ja).
+/// Vsa polja razen `songId` so nullable - `null` pomeni "ni ročno urejeno,
+/// uporabi original".
+class SongOverrides extends Table {
+  TextColumn get songId => text()();
+  TextColumn get title => text().nullable()();
+  TextColumn get artist => text().nullable()();
+  TextColumn get album => text().nullable()();
+  TextColumn get genre => text().nullable()();
+  IntColumn get year => integer().nullable()();
+  IntColumn get trackNumber => integer().nullable()();
+  BoolColumn get liked => boolean().withDefault(const Constant(false))();
+  TextColumn get artworkPath => text().nullable()();
+
+  /// Pesem je bila izbrisana preko app-a (glej `hideSong`) - filtriramo jo
+  /// iz knjižnice ne glede na to, ali MediaStore še vrača (stale) zapis
+  /// zanjo (indeks se osveži šele ob naslednjem media scan-u).
+  BoolColumn get hidden => boolean().withDefault(const Constant(false))();
+
+  @override
+  Set<Column> get primaryKey => {songId};
+}
+
+@DriftDatabase(tables: [Playlists, PlaylistSongs, SongOverrides])
 class AppDatabase extends _$AppDatabase {
   AppDatabase() : super(_openConnection());
   AppDatabase.forTesting(super.connection);
 
   @override
-  int get schemaVersion => 1;
+  int get schemaVersion => 2;
+
+  @override
+  MigrationStrategy get migration => MigrationStrategy(
+        onCreate: (m) => m.createAll(),
+        onUpgrade: (m, from, to) async {
+          if (from < 2) {
+            await m.createTable(songOverrides);
+          }
+        },
+      );
 
   /// Vse playliste, sortirane po imenu.
   Stream<List<Playlist>> watchAllPlaylists() {
@@ -93,6 +129,38 @@ class AppDatabase extends _$AppDatabase {
 
   Future<void> removeSongFromPlaylist(int playlistSongRowId) {
     return (delete(playlistSongs)..where((t) => t.id.equals(playlistSongRowId))).go();
+  }
+
+  /// Vsi ročni popravki metapodatkov, ključani po `songId` - za reaktivno
+  /// spajanje z osnovno MediaStore knjižnico v `librarySongsProvider`.
+  Stream<Map<String, SongOverride>> watchAllOverrides() {
+    return select(songOverrides).watch().map(
+          (rows) => {for (final row in rows) row.songId: row},
+        );
+  }
+
+  /// Delno posodobi (ali ustvari) popravek za eno pesem - polja, ki niso
+  /// podana v `companion`, ostanejo nespremenjena (ali `null`/`false` privzeto
+  /// ob prvem ustvarjanju vrstice).
+  Future<void> upsertOverride(SongOverridesCompanion companion) {
+    return into(songOverrides).insertOnConflictUpdate(companion);
+  }
+
+  Future<void> setLiked(String songId, bool liked) {
+    return upsertOverride(
+      SongOverridesCompanion(songId: Value(songId), liked: Value(liked)),
+    );
+  }
+
+  /// Označi pesem kot izbrisano (filtrirana iz knjižnice) in jo odstrani iz
+  /// vseh playlist. Dejansko brisanje datoteke z diska se zgodi ločeno v
+  /// UI plasti (glej `library_screen.dart` - `_deleteSong`), ker DB razred
+  /// namerno ne dostopa do datotečnega sistema.
+  Future<void> hideSongEverywhere(String songId) async {
+    await upsertOverride(
+      SongOverridesCompanion(songId: Value(songId), hidden: const Value(true)),
+    );
+    await (delete(playlistSongs)..where((t) => t.songId.equals(songId))).go();
   }
 }
 
