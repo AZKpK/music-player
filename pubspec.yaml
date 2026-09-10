@@ -38,6 +38,7 @@ dependencies:
   # --- Audio playback & background service ---
   just_audio: ^0.9.42
   audio_service: ^0.18.15
+  audio_session: ^0.1.25
 
   # --- Local database (playlists, play-history, custom tags) ---
   drift: ^2.20.3

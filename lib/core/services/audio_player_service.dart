@@ -1,4 +1,7 @@
+import 'dart:async';
+
 import 'package:audio_service/audio_service.dart';
+import 'package:audio_session/audio_session.dart';
 import 'package:just_audio/just_audio.dart';
 
 import '../models/song.dart';
@@ -27,13 +30,60 @@ Future<AudioPlayerHandler> initAudioService() {
 class AudioPlayerHandler extends BaseAudioHandler
     with QueueHandler, SeekHandler {
   AudioPlayerHandler() {
-    _player.playbackEventStream.listen(_broadcastState);
+    _player.playbackEventStream.listen(
+      _broadcastState,
+      onError: (Object error, StackTrace stackTrace) => _handlePlaybackError(),
+    );
     _player.currentIndexStream.listen(_handleCurrentIndexChanged);
     _player.processingStateStream.listen((state) {
       if (state == ProcessingState.completed) {
         _handleCompleted();
       }
     });
+    _configureAudioSession();
+  }
+
+  /// Napake pri predvajanju ene pesmi v queue-u (npr. datoteka je bila
+  /// medtem izbrisana/premaknjena) - UI (npr. `PlayerScreen`) lahko posluša
+  /// in prikaže snackbar, namesto da se player tiho zatakne.
+  final playbackErrors = StreamController<String>.broadcast();
+
+  /// Nastavi audio focus (`audio_session`) tako, da se app obnaša kot
+  /// "pravi" predvajalnik: pavzira ob dohodnem klicu/drugi audio app-aciji
+  /// (interruption) in ob izklopu slušalk/zvočnika (becoming noisy) - brez
+  /// tega bi predvajanje neopazno teklo naprej "v nič" ali se prekrivalo z
+  /// drugim zvokom.
+  Future<void> _configureAudioSession() async {
+    final session = await AudioSession.instance;
+    await session.configure(const AudioSessionConfiguration.music());
+
+    session.interruptionEventStream.listen((event) {
+      if (!event.begin) return;
+      // Ob koncu prekinitve namerno NE nadaljujemo sami - uporabnik sam
+      // pritisne play, enako kot večina music playerjev (izognemo se npr.
+      // nenadnemu predvajanju takoj po koncu klica).
+      switch (event.type) {
+        case AudioInterruptionType.pause:
+        case AudioInterruptionType.duck:
+        case AudioInterruptionType.unknown:
+          pause();
+      }
+    });
+
+    session.becomingNoisyEventStream.listen((_) => pause());
+  }
+
+  /// Ko `just_audio` vrže napako (npr. pesem v queue-u je bila izbrisana ali
+  /// je datoteka poškodovana), namesto da se predvajanje tiho zatakne,
+  /// preskočimo na naslednjo pesem in obvestimo UI.
+  void _handlePlaybackError() {
+    final failed = mediaItem.valueOrNull?.title;
+    playbackErrors.add(
+      failed != null
+          ? 'Napaka pri predvajanju "$failed" - preskočeno'
+          : 'Napaka pri predvajanju - preskočeno',
+    );
+    skipToNext();
   }
 
   final AudioPlayer _player = AudioPlayer();

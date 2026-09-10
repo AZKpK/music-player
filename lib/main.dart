@@ -19,14 +19,26 @@ void main() async {
   );
 }
 
-class MusicPlayerApp extends StatelessWidget {
+class MusicPlayerApp extends ConsumerWidget {
   const MusicPlayerApp({super.key});
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
+    // Napake pri predvajanju (glej `AudioPlayerHandler.playbackErrors`) se
+    // prikažejo kot snackbar ne glede na to, kateri zaslon je trenutno
+    // odprt - `scaffoldMessengerKey` ni vezan na en določen `Scaffold`.
+    ref.listen(playbackErrorProvider, (previous, next) {
+      next.whenData((message) {
+        scaffoldMessengerKey.currentState
+          ?..hideCurrentSnackBar()
+          ..showSnackBar(SnackBar(content: Text(message)));
+      });
+    });
+
     return MaterialApp(
       title: 'Music Player',
       navigatorKey: appNavigatorKey,
+      scaffoldMessengerKey: scaffoldMessengerKey,
       theme: ThemeData(
         colorScheme: ColorScheme.fromSeed(seedColor: Colors.deepPurple),
         useMaterial3: true,

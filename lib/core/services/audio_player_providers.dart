@@ -29,3 +29,10 @@ final queueProvider = StreamProvider<List<MediaItem>>((ref) {
 final playbackPositionProvider = StreamProvider<Duration>((ref) {
   return AudioService.position;
 });
+
+/// Sporočila o napakah pri predvajanju (npr. izbrisana/poškodovana datoteka
+/// v queue-u, glej `AudioPlayerHandler._handlePlaybackError`) - UI jih
+/// prikaže kot snackbar, glej `main.dart`.
+final playbackErrorProvider = StreamProvider<String>((ref) {
+  return ref.watch(audioHandlerProvider).playbackErrors.stream;
+});
