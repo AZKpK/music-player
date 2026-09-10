@@ -43,6 +43,17 @@ class MusicPlayerApp extends ConsumerWidget {
         colorScheme: ColorScheme.fromSeed(seedColor: Colors.deepPurple),
         useMaterial3: true,
       ),
+      darkTheme: ThemeData(
+        colorScheme: ColorScheme.fromSeed(
+          seedColor: Colors.deepPurple,
+          brightness: Brightness.dark,
+        ),
+        useMaterial3: true,
+      ),
+      // Sledi sistemski nastavitvi (svetlo/temno) - ni ločenega stikala v
+      // app-u, ker se noben "pravi" music player v Fazi 6 obsegu ne sprašuje
+      // za to ročno.
+      themeMode: ThemeMode.system,
       builder: (context, child) => Overlay(
         initialEntries: [
           OverlayEntry(
