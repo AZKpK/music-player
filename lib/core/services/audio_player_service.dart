@@ -124,6 +124,32 @@ class AudioPlayerHandler extends BaseAudioHandler
     await _playlist.insert(insertIndex, _songToAudioSource(song));
   }
 
+  /// Premakne pesem v queue-u z `oldIndex` na `newIndex` (drag-and-drop
+  /// reorder na `player_screen.dart`). Obe pozicionirani sta v smislu
+  /// "končnega" stanja seznama (enako kot `List.insert` po `List.removeAt`) -
+  /// klicatelj (`ReorderableListView.onReorder`) mora `newIndex` ustrezno
+  /// popraviti, če se element premika navzdol (standardna Flutter konvencija).
+  Future<void> moveQueueItem(int oldIndex, int newIndex) async {
+    await _playlist.move(oldIndex, newIndex);
+    final updatedQueue = [...queue.value];
+    updatedQueue.insert(newIndex, updatedQueue.removeAt(oldIndex));
+    queue.add(updatedQueue);
+  }
+
+  /// Odstrani pesem na `index` iz queue-a. Če je bila trenutno predvajana
+  /// pesem odstranjena, just_audio sam premakne predvajanje na naslednjo
+  /// (`currentIndexStream`/`_handleCurrentIndexChanged` to samodejno ujameta).
+  ///
+  /// Poimenovano `removeQueueItemAt` (ne `removeQueueItem`), ker slednje ime
+  /// že zaseda `QueueHandler.removeQueueItem(MediaItem)` z drugačnim
+  /// argumentom - override bi bil sicer neveljaven.
+  @override
+  Future<void> removeQueueItemAt(int index) async {
+    await _playlist.removeAt(index);
+    final updatedQueue = [...queue.value]..removeAt(index);
+    queue.add(updatedQueue);
+  }
+
   @override
   Future<void> play() => _player.play();
 

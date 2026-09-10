@@ -163,18 +163,35 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen> {
           ),
           const Divider(height: 32),
           Expanded(
-            child: ListView.builder(
+            child: ReorderableListView.builder(
               itemCount: queue.length,
+              onReorder: (oldIndex, newIndex) {
+                // ReorderableListView poda `newIndex` v smislu vstavljanja
+                // pred odstranitvijo elementa - pri premiku navzdol ga je
+                // zato treba popraviti za 1 (standardna Flutter konvencija).
+                if (newIndex > oldIndex) newIndex -= 1;
+                handler.moveQueueItem(oldIndex, newIndex);
+              },
               itemBuilder: (context, index) {
                 final item = queue[index];
                 final isCurrent = item.id == mediaItem?.id;
                 return ListTile(
+                  // `item.id` mora biti edinstven znotraj queue-a, da
+                  // `ReorderableListView` med vlečenjem pravilno sledi
+                  // premikanemu elementu (ista pesem dvakrat v queue-u je
+                  // rob primer, ki ga trenutno ne podpiramo).
+                  key: ValueKey(item.id),
                   leading: isCurrent
                       ? const Icon(Icons.volume_up)
                       : Text('${index + 1}'),
                   title: Text(item.title),
                   subtitle: Text(item.artist ?? ''),
                   onTap: () => handler.skipToQueueItem(index),
+                  trailing: IconButton(
+                    icon: const Icon(Icons.close),
+                    tooltip: 'Odstrani iz vrste',
+                    onPressed: () => handler.removeQueueItemAt(index),
+                  ),
                 );
               },
             ),
