@@ -313,7 +313,66 @@ knjižnico nadomeščal ročni folder-scan (glej Faza 2.5 spodaj).
   "Albumi" zavihek se naloži brez napak. `flutter analyze`/`flutter test`/
   `flutter build apk --debug` vsi prehajajo.
 
-### Faza 6+ — še ni začeto
+### Faza 6 — Konkurenčen core MVP ✅
+Krovni milestone (ni v izvirnem master planu, ampak dodan naknadno): dvig
+app-a na raven uveljavljenih Android music playerjev (Musicolet, Retro Music,
+Vanilla Music) po funkcionalnosti in občutku. Celoten plan v
+`/home/andra/.claude/plans/analyze-the-current-state-cozy-aho.md`.
+
+- **6.1 Album art povsod** — `media_library_service.dart`:
+  `resolveArtwork(songId)` prebere MediaStore artwork (`queryArtwork`), ga
+  cache-ira na disk (`<temp>/artwork_cache/<id>.jpg`) in vrne `file://` `Uri`.
+  `audio_player_service.dart`: `_resolveMediaItem()` ga uporabi za
+  `MediaItem.artUri` v `loadQueue`/`addToQueue`/`insertNext` (ročna naslovnica
+  ima prednost). `player_screen.dart` dobi veliko naslovnico (`SongArtwork`,
+  240px) nad naslovom/izvajalcem.
+- **6.2 Audio focus, interruption, auto-skip** — dodan `audio_session` paket;
+  `AudioPlayerHandler` konfigurira `AudioSessionConfiguration.music()` in
+  pavzira ob prekinitvi (klic/druga app) ter ob izklopu slušalk
+  (`becomingNoisyEventStream`). Napaka pri predvajanju ene pesmi (pokvarjena/
+  izbrisana datoteka) avtomatsko preskoči na naslednjo in prikaže snackbar
+  (`playbackErrors` stream → `scaffoldMessengerKey` v `main.dart`).
+- **6.3 Iskanje po knjižnici** — `librarySearchQueryProvider` +
+  `filteredLibrarySongsProvider` (čista funkcija `filterLibrarySongs`, naslov/
+  izvajalec/album, case-insensitive); search ikona v `library_screen.dart`
+  app baru preklopi naslov v `TextField`.
+- **6.4 Sortiranje "Vse pesmi"** — `Song.dateAdded` (iz MediaStore
+  `DATE_ADDED`, v sekundah → pretvorjeno v `DateTime`), `SongSortOption` enum
+  + `librarySortProvider` + `displayedLibrarySongsProvider` (čista funkcija
+  `sortLibrarySongs`: naslov/izvajalec/album/nedavno dodano/trajanje), izbira
+  preko `PopupMenuButton` v app baru.
+- **6.5 "Priljubljene" zavihek** — 4. zavihek v `library_screen.dart`, vezan na
+  obstoječi `likedSongsProvider`. Izločen skupen `_SongListView` widget
+  (naslovnica/naslov/izvajalec/priljubljena-ikona/akcije), uporabljen v vseh
+  treh mestih namesto podvojene `ListView.builder` logike.
+- **6.6 Queue reorder + remove** — `AudioPlayerHandler.moveQueueItem()` in
+  `removeQueueItemAt()` (override obstoječega `BaseAudioHandler` hook-a)
+  posodobita `just_audio` `ConcatenatingAudioSource` in `queue`. Queue na
+  `player_screen.dart` je zdaj `ReorderableListView.builder` (drag reorder) z
+  gumbom za brisanje posamezne vrstice.
+- **6.7 Sleep timer** — nov `sleep_timer_provider.dart`
+  (`SleepTimerController`, `StateNotifier<Duration?>`) z `start(duration)`/
+  `cancel()`; bedtime ikona v `player_screen.dart` app baru odpre dialog
+  (15/30/45/60 min), aktiven timer prikaže odštevanje v tooltipu.
+- **6.8 Hitrost predvajanja** — `AudioPlayerHandler.setSpeed()` (override
+  obstoječega hook-a), `PopupMenuButton` v `player_screen.dart` app baru
+  (0.75x–2.0x).
+- **6.9 Dark mode** — `main.dart`: `darkTheme` + `themeMode:
+  ThemeMode.system`, app samodejno sledi sistemski nastavitvi.
+
+Namerno izpuščeno iz Faze 6 (stretch, ni blocker): resume zadnje seje po
+ponovnem zagonu app-a (persist queue+pozicija čez app-kill), home-screen
+widget, equalizer, lyrics.
+
+Preverjeno ročno na emulatorju za vse zgornje UI tokove (iskanje, sortiranje,
+priljubljene, queue reorder/remove, sleep timer, hitrost, dark mode preklop).
+Interruption/becoming-noisy/auto-skip (6.2) preverjeno kolikor se da simulirati
+na emulatorju (audio-route change, namerno pokvarjena pot do datoteke v
+queue-u); dejanski dohodni klic na fizični napravi ni bil posebej testiran.
+`flutter analyze`/`flutter test`/`flutter build apk --debug` vsi prehajajo po
+vsakem od 6.1–6.9.
+
+### Faza 7+ — še ni začeto
 Play-history tracking, yearly wrap, bulk tagging (dejansko pisanje ID3 tagov
 nazaj v datoteke), YouTube auto-download. Glej celoten plan v
 `/home/andra/.claude/plans/kako-te-ko-bi-bilo-ethereal-muffin.md`.
