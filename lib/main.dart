@@ -3,7 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'core/services/audio_player_providers.dart';
 import 'core/services/audio_player_service.dart';
-import 'features/library/library_test_screen.dart';
+import 'features/library/library_screen.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -30,7 +30,7 @@ class MusicPlayerApp extends StatelessWidget {
         colorScheme: ColorScheme.fromSeed(seedColor: Colors.deepPurple),
         useMaterial3: true,
       ),
-      home: const LibraryTestScreen(),
+      home: const LibraryScreen(),
     );
   }
 }

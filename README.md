@@ -60,21 +60,26 @@ flutter analyze     # statična analiza - mora biti brez napak
 flutter test         # unit/widget testi
 ```
 
-Trenutno app ob zagonu odpre zaslon **"Music Player"**
-(`lib/features/library/library_test_screen.dart`) z dvema gumboma — to je
-začasen file-picker, ki nadomešča pravi library scan dokler ta ni
-implementiran preko `on_audio_query` (glej znano odprto vprašanje spodaj).
-Ročni test:
+Trenutno app ob zagonu odpre zaslon **"Knjižnica"**
+(`lib/features/library/library_screen.dart`) s tremi zavihki (Vse pesmi /
+Izvajalci / Albumi), ki bere pravo glasbeno knjižnico z naprave preko
+`on_audio_query` (Android MediaStore). Ročni test:
 
 1. `flutter run` na telefonu/emulatorju
-2. **"Izberi mapo (vse pesmi iz podmap)"** — izberi mapo (npr. `Music` ali kar
-   celoten `Internal storage` root za vso glasbo na napravi); app rekurzivno
-   poišče vse audio datoteke v vseh podmapah (`lib/core/services/library_scanner.dart`)
-   in jih naloži v queue. Alternativno **"Izberi posamezne datoteke"** za ročno
-   (multi-)izbiro posameznih datotek.
-3. App začne predvajati in te preusmeri na now-playing zaslon
-   (`lib/features/player/player_screen.dart`), kjer testiraš play/pause, next/prev,
-   shuffle, repeat (none → all → one) in tapanje na pesem v queue-u
+2. Ob prvem zagonu app zahteva dovoljenje za dostop do glasbe (`READ_MEDIA_AUDIO`
+   na Android 13+) — potrdi
+3. **"Vse pesmi"** prikaže ploski seznam vseh pesmi na napravi; **"Izvajalci"**/
+   **"Albumi"** prikažeta grupirane sezname (tap odpre pesmi znotraj skupine)
+4. Tap na pesem naloži *celoten trenutno prikazan seznam* (vse pesmi / pesmi
+   izbranega izvajalca ali albuma) v queue, začne predvajati od tapnjene pesmi
+   naprej in preusmeri na now-playing zaslon (`lib/features/player/player_screen.dart`),
+   kjer testiraš play/pause, next/prev, shuffle, repeat (none → all → one) in
+   tapanje na pesem v queue-u
+5. Ikona mape v zgornjem desnem kotu (`Knjižnica` app bar) odpre alternativni
+   ročni **folder-scan** zaslon (`lib/features/library/library_test_screen.dart`,
+   glej Faza 2.5) — uporabno za datoteke, ki jih MediaStore še ni indeksiral
+   (npr. ravnokar prekopirane preko `adb push`, dokler ne sproži-š
+   `MEDIA_SCANNER_SCAN_FILE` broadcasta ali se naprava ne ponovno zažene)
 
 Za testiranje **background playback**-a (lock-screen kontrole, notifikacija):
 zaženi predvajanje, pojdi iz app-a (home button) in preveri, da notifikacija
@@ -128,12 +133,10 @@ Flutter SDK, Android SDK (cmdline-tools, NDK, licence), VS Code razširitvi. Pod
 - Preverjeno: `flutter analyze`, `flutter test` in `flutter build apk --debug`
   vsi prehajajo (`app-debug.apk`, 147MB)
 
-**Znano odprto vprašanje:** `on_audio_query` (paket za branje glasbene knjižnice
-z naprave preko Android MediaStore, s pravim artist/album metadata) je začasno
-odstranjen iz `pubspec.yaml`, ker verzija 2.9.0 ni kompatibilna z novejšim
-Android Gradle Plugin (manjka `namespace` v `on_audio_query_android`). Do
-takrat knjižnico nadomešča ročni folder-scan (glej spodaj) — deluje, a brez
-prave metadata (artist/album je samo ime mape).
+**Znano odprto vprašanje (rešeno v Fazi 3):** `on_audio_query` 2.9.0 sprva ni
+šel zgraditi z novejšim Android Gradle Plugin (manjka `namespace` v
+`on_audio_query_android`) — glej Faza 3 spodaj za rešitev. Do takrat je
+knjižnico nadomeščal ročni folder-scan (glej Faza 2.5 spodaj).
 
 ### Faza 2.5 — Folder-based library scan + bugfix ✅
 - `lib/core/services/library_scanner.dart` — `scanFolderForSongs()` rekurzivno
@@ -154,8 +157,50 @@ prave metadata (artist/album je samo ime mape).
   v queue, takoj preusmeri na `PlayerScreen`, skip next/previous pravilno
   menjata pesmi v queue-u
 
-### Faza 3+ — še ni začeto
-Pravi library scan preko `on_audio_query` (artist/album metadata, cover art),
-playlists, play-history tracking, yearly wrap, bulk tagging, YouTube
+### Faza 3 — Pravi library scan preko on_audio_query ✅
+- **Gradle fix za `on_audio_query_android` 1.1.0** (`android/build.gradle.kts`):
+  starejši plugin ne nastavi `namespace` (novejši AGP to zahteva) niti
+  usklajen Java/Kotlin compile target (javac privzeto 1.8, Kotlin novejši JDK
+  → "Inconsistent JVM-target compatibility"). Namesto čakanja na upstream
+  popravek, `subprojects { plugins.withId("com.android.library") { ... } }`
+  blok ob apply-ju plugina: namespace naknadno prebere iz
+  `AndroidManifest.xml` `package` atributa (`groovy.xml.XmlParser()`), in
+  nastavi `compileOptions.sourceCompatibility/targetCompatibility` ter
+  Kotlin `jvmTarget` na 11 (enako kot `app/build.gradle.kts`). Nastavljeno
+  direktno na `LibraryExtension` (ne na `JavaCompile` task), ker AGP kasneje
+  prepiše task-level nastavitve iz `android.compileOptions`.
+  `plugins.withId` (namesto `afterEvaluate`) se izognemo napaki
+  "already evaluated", ki bi nastala zaradi obstoječega
+  `subprojects { evaluationDependsOn(":app") }` bloka.
+- `lib/core/services/media_library_service.dart` — `MediaLibraryService`
+  ovija `OnAudioQuery`: `requestPermission()` (`checkAndRequest()`),
+  `querySongs()` (MediaStore → `List<Song>` s pravim artist/album/duration
+  metadata), `groupByArtist()`/`groupByAlbum()` za ročno grupiranje
+  (`Map<String, List<Song>>`)
+- `lib/core/services/media_library_providers.dart` — Riverpod providerji:
+  `librarySongsProvider` (`FutureProvider<List<Song>>`, zahteva dovoljenje in
+  prebere knjižnico), `songsByArtistProvider`/`songsByAlbumProvider`
+  (izpeljana grupiranja)
+- `lib/features/library/library_screen.dart` — nov glavni zaslon
+  **"Knjižnica"** z zavihki *Vse pesmi* / *Izvajalci* / *Albumi*. Tap na
+  izvajalca/album odpre podseznam pesmi znotraj skupine; tap na pesem naloži
+  prikazan seznam v queue in začne predvajati od tapnjene pesmi (isti
+  `unawaited(handler.play())` + takojšen `Navigator.push` vzorec kot v Fazi
+  2.5, glej razlago tam). Cover art namerno izpuščen (glej TODO v
+  `media_library_service.dart` — `on_audio_query` ponuja artwork le kot
+  `QueryArtworkWidget`, ne kot `Uri`, primeren za `MediaItem.artUri`)
+- `library_test_screen.dart` (Faza 2.5 folder-scan) ostane dosegljiv preko
+  ikone mape v app baru — uporaben kot fallback za datoteke, ki jih
+  MediaStore še ni indeksiral
+- Preverjeno ročno na emulatorju: "Vse pesmi" prikaže vseh 5 prej prenesenih
+  mp3-jev s pravim naslovom/izvajalcem (npr. "Mr. Brightside" / "The
+  Killers", namesto imena mape kot prej); "Izvajalci" pravilno grupira (tudi
+  robni primer - pesem s featured artistom v ID3 tagu dobi svojo skupino,
+  ker je grupiranje po točnem ujemanju `artist` stringa); tap na pesem naloži
+  queue in začne predvajati, `flutter analyze`/`flutter test`/
+  `flutter build apk --debug` vsi prehajajo
+
+### Faza 4+ — še ni začeto
+Playlists, play-history tracking, yearly wrap, bulk tagging, YouTube
 auto-download. Glej celoten plan v
 `/home/andra/.claude/plans/kako-te-ko-bi-bilo-ethereal-muffin.md`.

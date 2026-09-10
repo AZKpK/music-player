@@ -1,6 +1,7 @@
 // Osnovni smoke test: preveri, da se app zažene brez izjem.
-// Note: v tem testu audioHandlerProvider ni overriden z realnim handlerjem,
-// zato ostane na "izberi pesmi" zaslonu (main() to normalno naredi v initAudioService()).
+// Note: `librarySongsProvider` v testnem okolju nima platform-channel
+// implementacije za `on_audio_query`, zato ostane v error/loading stanju -
+// tu preverjamo le, da se app zažene in prikaže osnovni "Knjižnica" zaslon.
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -20,6 +21,6 @@ void main() {
       ),
     );
 
-    expect(find.text('Music Player'), findsOneWidget);
+    expect(find.text('Knjižnica'), findsOneWidget);
   });
 }

@@ -39,13 +39,6 @@ dependencies:
   just_audio: ^0.9.42
   audio_service: ^0.18.15
 
-  # --- Local music library access (artists/albums/folders from device) ---
-  # TODO(faza3): on_audio_query 2.9.0 se ne zgradi z novejšim AGP
-  # (manjka namespace v on_audio_query_android build.gradle - paket
-  # je zastarel). Preveriti 3.0.0-beta.0 ali alternativo, ko pridemo
-  # do library scanning feature-ja.
-  # on_audio_query: ^2.9.0
-
   # --- Local database (playlists, play-history, custom tags) ---
   drift: ^2.20.3
   sqlite3_flutter_libs: ^0.5.24
@@ -64,6 +57,9 @@ dependencies:
 
   # --- Yearly wrap charts ---
   fl_chart: ^0.69.2
+
+  # --- Local music library access (artists/albums/folders from device) ---
+  on_audio_query: ^2.9.0
 
 dev_dependencies:
   build_runner: ^2.4.13
