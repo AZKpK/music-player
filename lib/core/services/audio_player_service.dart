@@ -187,6 +187,12 @@ class AudioPlayerHandler extends BaseAudioHandler
     playbackState.add(playbackState.value.copyWith(repeatMode: repeatMode));
   }
 
+  /// Nastavi hitrost predvajanja (npr. 1.5x/2.0x) - `speed` v
+  /// `_broadcastState` (`_player.speed`) že poroča trenutno vrednost naprej,
+  /// zato tu ni potrebno dodatno ročno posodabljanje playback stanja.
+  @override
+  Future<void> setSpeed(double speed) => _player.setSpeed(speed);
+
   @override
   Future<void> stop() async {
     await _player.stop();

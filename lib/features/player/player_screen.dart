@@ -22,6 +22,9 @@ const _sleepTimerOptions = [
   Duration(minutes: 60),
 ];
 
+/// Ponujene hitrosti predvajanja v AppBar meniju.
+const _speedOptions = [0.75, 1.0, 1.25, 1.5, 2.0];
+
 /// Formatira `mm:ss` (ali `h:mm:ss` za daljše trajanje, npr. sleep timer
 /// odštevanje) - skupna implementacija za `_SeekBar` in sleep timer badge.
 String _formatDuration(Duration d) {
@@ -70,11 +73,30 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen> {
     final shuffleOn = playbackState?.shuffleMode == AudioServiceShuffleMode.all;
     final repeatMode = playbackState?.repeatMode ?? AudioServiceRepeatMode.none;
     final sleepRemaining = ref.watch(sleepTimerProvider);
+    final speed = playbackState?.speed ?? 1.0;
 
     return Scaffold(
       appBar: AppBar(
         title: const Text('Predvajam'),
         actions: [
+          PopupMenuButton<double>(
+            tooltip: 'Hitrost predvajanja',
+            initialValue: speed,
+            onSelected: handler.setSpeed,
+            itemBuilder: (context) => [
+              for (final option in _speedOptions)
+                PopupMenuItem(value: option, child: Text('${option}x')),
+            ],
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 12),
+              child: Center(
+                child: Text(
+                  '${speed}x',
+                  style: Theme.of(context).textTheme.labelLarge,
+                ),
+              ),
+            ),
+          ),
           IconButton(
             icon: Icon(
               sleepRemaining != null ? Icons.bedtime : Icons.bedtime_outlined,
