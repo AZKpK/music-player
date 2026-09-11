@@ -155,13 +155,21 @@ final displayedLibrarySongsProvider = Provider<AsyncValue<List<Song>>>((ref) {
 /// [filterLibrarySongs] za enak razlog ločitve od providerja.
 List<Song> sortLibrarySongs(List<Song> songs, SongSortOption option) {
   final sorted = [...songs];
+  // Case-insensitive (`String.compareTo` bi sicer dal vse velike črke pred
+  // vse male - npr. "boy" bi pristal za vsemi "B..." naslovi namesto zraven).
   switch (option) {
     case SongSortOption.title:
-      sorted.sort((a, b) => a.title.compareTo(b.title));
+      sorted.sort(
+        (a, b) => a.title.toLowerCase().compareTo(b.title.toLowerCase()),
+      );
     case SongSortOption.artist:
-      sorted.sort((a, b) => a.artist.compareTo(b.artist));
+      sorted.sort(
+        (a, b) => a.artist.toLowerCase().compareTo(b.artist.toLowerCase()),
+      );
     case SongSortOption.album:
-      sorted.sort((a, b) => a.album.compareTo(b.album));
+      sorted.sort(
+        (a, b) => a.album.toLowerCase().compareTo(b.album.toLowerCase()),
+      );
     case SongSortOption.dateAddedDesc:
       sorted.sort((a, b) {
         final dateA = a.dateAdded;

@@ -130,5 +130,21 @@ void main() {
       sortLibrarySongs(unsorted, SongSortOption.title);
       expect(unsorted, originalOrder);
     });
+
+    test(
+      'title sortira brez razlikovanja velikih/malih črk (case-insensitive)',
+      () {
+        final mixedCase = [
+          _song(id: '1', title: 'boy', artist: 'X', album: 'X'),
+          _song(id: '2', title: 'Battle Born', artist: 'X', album: 'X'),
+          _song(id: '3', title: 'Bright Lights', artist: 'X', album: 'X'),
+        ];
+        final result = sortLibrarySongs(mixedCase, SongSortOption.title);
+        // "boy" (malo b) mora pristati med ostalimi "B..." naslovi, ne za
+        // njimi - `String.compareTo` bi ga sicer dal na konec (velike črke
+        // pridejo pred male v ASCII).
+        expect(result.map((s) => s.id), ['2', '1', '3']);
+      },
+    );
   });
 }
