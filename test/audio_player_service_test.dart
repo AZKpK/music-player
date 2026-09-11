@@ -5,6 +5,7 @@
 
 import 'dart:math';
 
+import 'package:audio_service/audio_service.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:music_player/core/models/song.dart';
 import 'package:music_player/core/services/audio_player_service.dart';
@@ -195,6 +196,42 @@ void main() {
       );
 
       expect(result.map((e) => e.queueItemId).toList(), [0, 1, 2]);
+    });
+  });
+
+  group('updateQueueItemDuration', () {
+    MediaItem item(String id, int queueItemId, [Duration? duration]) =>
+        MediaItem(
+          id: id,
+          title: id,
+          duration: duration,
+          extras: {queueItemIdExtraKey: queueItemId},
+        );
+
+    test('updates only the matching queue entry when a duration arrives', () {
+      final items = [item('same-song', 10), item('same-song', 11)];
+
+      final result = updateQueueItemDuration(
+        items,
+        11,
+        const Duration(minutes: 3, seconds: 42),
+      );
+
+      expect(result[0].duration, isNull);
+      expect(result[1].duration, const Duration(minutes: 3, seconds: 42));
+      expect(result[1].extras?[queueItemIdExtraKey], 11);
+    });
+
+    test('leaves the original queue untouched when the entry is absent', () {
+      final items = [item('song', 10)];
+
+      expect(
+        identical(
+          updateQueueItemDuration(items, 99, const Duration(seconds: 1)),
+          items,
+        ),
+        isTrue,
+      );
     });
   });
 }

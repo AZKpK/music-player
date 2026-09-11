@@ -11,6 +11,7 @@ import 'package:path_provider/path_provider.dart';
 import '../../core/db/app_database.dart';
 import '../../core/models/song.dart';
 import '../../core/services/audio_player_providers.dart';
+import '../../core/services/media_library_providers.dart';
 import '../../core/services/playlist_providers.dart';
 import 'edit_song_metadata_dialog.dart';
 
@@ -57,7 +58,9 @@ Future<void> showSongActionsSheet(
             ),
             onTap: () {
               Navigator.of(sheetContext).pop();
-              ref.read(appDatabaseProvider).setLiked(song.id, !song.liked);
+              ref
+                  .read(songLikesControllerProvider)
+                  .setLiked(song.id, !song.liked);
             },
           ),
           ListTile(

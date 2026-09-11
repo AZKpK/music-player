@@ -34,12 +34,58 @@ final songOverridesProvider = StreamProvider<Map<String, SongOverride>>((ref) {
   return ref.watch(appDatabaseProvider).watchAllOverrides();
 });
 
+/// Lokalno, optimistično stanje sprememb priljubljenosti. Zapis v Drift je
+/// asinhron; ta provider zato UI osveži takoj, tudi kadar je predvajalnik na
+/// premoru in se pozicija ne spreminja.
+final pendingSongLikesProvider = StateProvider<Map<String, bool>>((ref) => {});
+
+/// Shrani spremembo priljubljenosti in jo hkrati takoj prikaže v UI-ju.
+/// Če zapis v bazo ne uspe, lokalno spremembo odstrani, da UI ne ostane v
+/// stanju, ki ni shranjeno.
+final songLikesControllerProvider = Provider<SongLikesController>((ref) {
+  return SongLikesController(ref);
+});
+
+class SongLikesController {
+  SongLikesController(this._ref);
+
+  final Ref _ref;
+
+  Future<void> setLiked(String songId, bool liked) async {
+    final previous = _ref.read(pendingSongLikesProvider);
+    _ref.read(pendingSongLikesProvider.notifier).state = {
+      ...previous,
+      songId: liked,
+    };
+
+    try {
+      await _ref.read(appDatabaseProvider).setLiked(songId, liked);
+      // Driftov stream bo nato potrdil isto vrednost; invalidacija zagotovi
+      // svež posnetek tudi na platformah, kjer stream ob UPSERT-u zamuja.
+      _ref.invalidate(songOverridesProvider);
+    } catch (_) {
+      final restored = Map<String, bool>.from(
+        _ref.read(pendingSongLikesProvider),
+      )..remove(songId);
+      _ref.read(pendingSongLikesProvider.notifier).state = restored;
+      rethrow;
+    }
+  }
+}
+
+/// Ročno izbrane naslovnice izvajalcev in albumov.
+final groupArtworksProvider =
+    StreamProvider<Map<GroupArtworkKey, GroupArtwork>>((ref) {
+      return ref.watch(appDatabaseProvider).watchAllGroupArtworks();
+    });
+
 /// Osnovna MediaStore knjižnica, spojena z ročnimi popravki iz
 /// [songOverridesProvider]. Pesmi, izbrisane preko app-a
 /// (`SongOverride.hidden`), so izločene.
 final librarySongsProvider = Provider<AsyncValue<List<Song>>>((ref) {
   final rawAsync = ref.watch(rawLibrarySongsProvider);
   final overridesAsync = ref.watch(songOverridesProvider);
+  final pendingLikes = ref.watch(pendingSongLikesProvider);
 
   if (rawAsync is AsyncError) {
     return AsyncValue.error(rawAsync.error!, rawAsync.stackTrace!);
@@ -50,7 +96,13 @@ final librarySongsProvider = Provider<AsyncValue<List<Song>>>((ref) {
 
   final overrides = overridesAsync.valueOrNull ?? const {};
   final merged = rawAsync.value
-      .map((song) => applyOverride(song, overrides[song.id]))
+      .map(
+        (song) => applyOverride(
+          song,
+          overrides[song.id],
+          optimisticLiked: pendingLikes[song.id],
+        ),
+      )
       .where((song) => overrides[song.id]?.hidden != true)
       .toList();
   return AsyncValue.data(merged);
@@ -60,8 +112,12 @@ final librarySongsProvider = Provider<AsyncValue<List<Song>>>((ref) {
 /// lahko uporabi tudi npr. `playlists_screen.dart`, kjer so pesmi shranjene
 /// kot lasten snapshot v `PlaylistSongs` (ne prihajajo direktno iz
 /// [librarySongsProvider]).
-Song applyOverride(Song song, SongOverride? override) {
-  if (override == null) return song;
+Song applyOverride(Song song, SongOverride? override, {bool? optimisticLiked}) {
+  if (override == null) {
+    return optimisticLiked == null
+        ? song
+        : song.copyWith(liked: optimisticLiked);
+  }
   return song.copyWith(
     title: override.title,
     artist: override.artist,
@@ -69,7 +125,7 @@ Song applyOverride(Song song, SongOverride? override) {
     genre: override.genre,
     year: override.year,
     trackNumber: override.trackNumber,
-    liked: override.liked,
+    liked: optimisticLiked ?? override.liked,
     artUri: override.artworkPath != null
         ? Uri.file(override.artworkPath!)
         : null,
@@ -203,6 +259,7 @@ final currentSongProvider = Provider<Song?>((ref) {
   if (mediaItem == null) return null;
 
   final override = ref.watch(songOverridesProvider).valueOrNull?[mediaItem.id];
+  final optimisticLiked = ref.watch(pendingSongLikesProvider)[mediaItem.id];
   return Song(
     id: mediaItem.id,
     title: override?.title ?? mediaItem.title,
@@ -216,12 +273,6 @@ final currentSongProvider = Provider<Song?>((ref) {
     genre: override?.genre ?? mediaItem.genre,
     year: override?.year,
     trackNumber: override?.trackNumber,
-    liked: override?.liked ?? false,
+    liked: optimisticLiked ?? override?.liked ?? false,
   );
 });
-
-/// Ročno izbrane naslovnice izvajalcev in albumov.
-final groupArtworksProvider =
-    StreamProvider<Map<GroupArtworkKey, GroupArtwork>>((ref) {
-      return ref.watch(appDatabaseProvider).watchAllGroupArtworks();
-    });

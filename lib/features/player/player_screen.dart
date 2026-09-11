@@ -4,7 +4,6 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../core/services/audio_player_providers.dart';
 import '../../core/services/media_library_providers.dart';
-import '../../core/services/playlist_providers.dart';
 import '../../core/services/sleep_timer_provider.dart';
 import '../../core/navigation/player_screen_visibility.dart';
 import '../../shared/widgets/song_artwork.dart';
@@ -49,6 +48,11 @@ class PlayerScreen extends ConsumerStatefulWidget {
 }
 
 class _PlayerScreenState extends ConsumerState<PlayerScreen> {
+  // Podrobni zaslon mora ob kliku osvežiti srček tudi, ko je predvajanje na
+  // premoru (takrat ni periodičnih posodobitev pozicije, ki bi sprožile build).
+  String? _locallyUpdatedLikeSongId;
+  bool? _locallyUpdatedLiked;
+
   @override
   void initState() {
     super.initState();
@@ -69,13 +73,17 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen> {
     final currentSong = ref.watch(currentSongProvider);
     final position =
         ref.watch(playbackPositionProvider).valueOrNull ?? Duration.zero;
-    final duration = mediaItem?.duration ?? Duration.zero;
+    final duration = mediaItem?.duration;
 
     final playing = playbackState?.playing ?? false;
     final shuffleOn = playbackState?.shuffleMode == AudioServiceShuffleMode.all;
     final repeatMode = playbackState?.repeatMode ?? AudioServiceRepeatMode.none;
     final sleepRemaining = ref.watch(sleepTimerProvider);
     final speed = playbackState?.speed ?? 1.0;
+    final displayedLiked =
+        currentSong != null && _locallyUpdatedLikeSongId == currentSong.id
+        ? _locallyUpdatedLiked ?? currentSong.liked
+        : currentSong?.liked ?? false;
 
     return Scaffold(
       appBar: AppBar(
@@ -151,15 +159,31 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen> {
               if (currentSong != null) ...[
                 IconButton(
                   icon: Icon(
-                    currentSong.liked ? Icons.favorite : Icons.favorite_border,
-                    color: currentSong.liked
+                    displayedLiked ? Icons.favorite : Icons.favorite_border,
+                    color: displayedLiked
                         ? Theme.of(context).colorScheme.primary
                         : null,
                   ),
                   tooltip: 'Priljubljena',
-                  onPressed: () => ref
-                      .read(appDatabaseProvider)
-                      .setLiked(currentSong.id, !currentSong.liked),
+                  onPressed: () async {
+                    final nextLiked = !displayedLiked;
+                    setState(() {
+                      _locallyUpdatedLikeSongId = currentSong.id;
+                      _locallyUpdatedLiked = nextLiked;
+                    });
+
+                    try {
+                      await ref
+                          .read(songLikesControllerProvider)
+                          .setLiked(currentSong.id, nextLiked);
+                    } catch (_) {
+                      if (!mounted) return;
+                      setState(() {
+                        _locallyUpdatedLikeSongId = null;
+                        _locallyUpdatedLiked = null;
+                      });
+                    }
+                  },
                 ),
                 IconButton(
                   icon: const Icon(Icons.edit_outlined),
@@ -200,7 +224,7 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen> {
               IconButton(
                 icon: const Icon(Icons.replay_5),
                 tooltip: '-5s',
-                onPressed: mediaItem == null
+                onPressed: duration == null || duration <= Duration.zero
                     ? null
                     : () => handler.seek(
                         _clampSeek(position - _seekStep, duration),
@@ -214,7 +238,7 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen> {
               IconButton(
                 icon: const Icon(Icons.forward_5),
                 tooltip: '+5s',
-                onPressed: mediaItem == null
+                onPressed: duration == null || duration <= Duration.zero
                     ? null
                     : () => handler.seek(
                         _clampSeek(position + _seekStep, duration),
@@ -244,9 +268,11 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen> {
     );
   }
 
-  Duration _clampSeek(Duration target, Duration duration) {
+  Duration _clampSeek(Duration target, Duration? duration) {
     if (target < Duration.zero) return Duration.zero;
-    if (duration > Duration.zero && target > duration) return duration;
+    if (duration != null && duration > Duration.zero && target > duration) {
+      return duration;
+    }
     return target;
   }
 
@@ -286,7 +312,7 @@ class _SeekBar extends StatefulWidget {
   });
 
   final Duration position;
-  final Duration duration;
+  final Duration? duration;
   final ValueChanged<Duration> onSeek;
 
   @override
@@ -298,7 +324,9 @@ class _SeekBarState extends State<_SeekBar> {
 
   @override
   Widget build(BuildContext context) {
-    final maxMs = widget.duration.inMilliseconds.toDouble();
+    final duration = widget.duration;
+    final durationKnown = duration != null && duration > Duration.zero;
+    final maxMs = duration?.inMilliseconds.toDouble() ?? 0;
     final currentMs = widget.position.inMilliseconds.toDouble().clamp(
       0.0,
       maxMs <= 0 ? 0.0 : maxMs,
@@ -312,13 +340,15 @@ class _SeekBarState extends State<_SeekBar> {
           Slider(
             value: maxMs <= 0 ? 0 : sliderValue.clamp(0.0, maxMs),
             max: maxMs <= 0 ? 1 : maxMs,
-            onChanged: maxMs <= 0
+            onChanged: !durationKnown
                 ? null
                 : (value) => setState(() => _dragValue = value),
-            onChangeEnd: (value) {
-              widget.onSeek(Duration(milliseconds: value.round()));
-              setState(() => _dragValue = null);
-            },
+            onChangeEnd: !durationKnown
+                ? null
+                : (value) {
+                    widget.onSeek(Duration(milliseconds: value.round()));
+                    setState(() => _dragValue = null);
+                  },
           ),
           Padding(
             padding: const EdgeInsets.only(bottom: 8),
@@ -326,9 +356,13 @@ class _SeekBarState extends State<_SeekBar> {
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
                 Text(
-                  _formatDuration(Duration(milliseconds: sliderValue.round())),
+                  durationKnown
+                      ? _formatDuration(
+                          Duration(milliseconds: sliderValue.round()),
+                        )
+                      : '--:--',
                 ),
-                Text(_formatDuration(widget.duration)),
+                Text(durationKnown ? _formatDuration(duration) : '--:--'),
               ],
             ),
           ),

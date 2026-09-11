@@ -37,7 +37,7 @@ class _MiniPlayerContent extends ConsumerWidget {
     final handler = ref.watch(audioHandlerProvider);
     final mediaItem = ref.watch(currentMediaItemProvider).valueOrNull;
     final queue = ref.watch(queueProvider).valueOrNull ?? const [];
-    final duration = mediaItem?.duration ?? song.duration ?? Duration.zero;
+    final duration = mediaItem?.duration ?? song.duration;
 
     return Material(
       color: Theme.of(context).colorScheme.surfaceContainer,
@@ -104,15 +104,21 @@ class _MiniPlayerContent extends ConsumerWidget {
 class _MiniPlayerProgress extends ConsumerWidget {
   const _MiniPlayerProgress({required this.duration});
 
-  final Duration duration;
+  final Duration? duration;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final position =
         ref.watch(playbackPositionProvider).valueOrNull ?? Duration.zero;
+    final knownDuration = duration != null && duration! > Duration.zero
+        ? duration
+        : null;
     return LinearProgressIndicator(
-      value: duration > Duration.zero
-          ? (position.inMilliseconds / duration.inMilliseconds).clamp(0.0, 1.0)
+      value: knownDuration != null
+          ? (position.inMilliseconds / knownDuration.inMilliseconds).clamp(
+              0.0,
+              1.0,
+            )
           : 0,
     );
   }
@@ -121,14 +127,19 @@ class _MiniPlayerProgress extends ConsumerWidget {
 class _MiniPlayerTime extends ConsumerWidget {
   const _MiniPlayerTime({required this.duration});
 
-  final Duration duration;
+  final Duration? duration;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final position =
         ref.watch(playbackPositionProvider).valueOrNull ?? Duration.zero;
+    final knownDuration = duration != null && duration! > Duration.zero
+        ? duration
+        : null;
     return Text(
-      '${_formatDuration(position)} / ${_formatDuration(duration)}',
+      knownDuration == null
+          ? '--:-- / --:--'
+          : '${_formatDuration(position)} / ${_formatDuration(knownDuration)}',
       style: Theme.of(context).textTheme.labelSmall,
     );
   }

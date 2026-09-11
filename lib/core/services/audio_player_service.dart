@@ -45,9 +45,27 @@ List<Song> buildQueueWindow(
   if (songs.isEmpty) return const [];
   if (startIndex < 0 || startIndex >= songs.length) return const [];
   final windowLength = min(maxLength, songs.length - startIndex);
-  return [
-    for (var i = 0; i < windowLength; i++) songs[startIndex + i],
-  ];
+  return [for (var i = 0; i < windowLength; i++) songs[startIndex + i]];
+}
+
+/// Vrne kopijo queue-a, v kateri ima vnos z [queueItemId] znano [duration].
+///
+/// `Song.id` za to ni primeren ključ, ker se lahko ista pesem v queue-u
+/// pojavi večkrat. Pomožna funkcija je ločena, da je posodobitev, ki jo
+/// sproži `AudioPlayer.durationStream`, preprosto testabilna.
+List<MediaItem> updateQueueItemDuration(
+  List<MediaItem> items,
+  int queueItemId,
+  Duration duration,
+) {
+  final index = items.indexWhere(
+    (item) => item.extras?[queueItemIdExtraKey] == queueItemId,
+  );
+  if (index == -1) return items;
+
+  final updated = [...items];
+  updated[index] = updated[index].copyWith(duration: duration);
+  return updated;
 }
 
 /// Zgradi nov play order, kjer trenutna pesem ostane prva:
@@ -115,6 +133,7 @@ class AudioPlayerHandler extends BaseAudioHandler
       onError: (Object error, StackTrace stackTrace) => _handlePlaybackError(),
     );
     _player.currentIndexStream.listen(_handleCurrentIndexChanged);
+    _player.durationStream.listen(_handleDurationChanged);
     _player.processingStateStream.listen((state) {
       if (state == ProcessingState.completed) {
         _handleCompleted();
@@ -318,8 +337,9 @@ class AudioPlayerHandler extends BaseAudioHandler
     _publishCurrentQueueItem(
       // Če smo odstranili trenutno pesem, mora UI uporabiti indeks, ki ga je
       // just_audio izbral za naslednjo pesem, ne že odstranjenega vnosa.
-      preferredQueueItemId:
-          currentQueueItemId == removedId ? null : currentQueueItemId,
+      preferredQueueItemId: currentQueueItemId == removedId
+          ? null
+          : currentQueueItemId,
     );
   }
 
@@ -431,8 +451,7 @@ class AudioPlayerHandler extends BaseAudioHandler
     var index = preferredQueueItemId == null
         ? -1
         : currentQueue.indexWhere(
-            (item) =>
-                item.extras?[queueItemIdExtraKey] == preferredQueueItemId,
+            (item) => item.extras?[queueItemIdExtraKey] == preferredQueueItemId,
           );
     if (index == -1) {
       index = _player.currentIndex ?? -1;
@@ -478,6 +497,26 @@ class AudioPlayerHandler extends BaseAudioHandler
     if (index == null || index < 0 || index >= queue.value.length) return;
     mediaItem.add(queue.value[index]);
     unawaited(_resolveArtworkAround(index));
+  }
+
+  /// Folder scan ne prebere trajanja iz datoteke. `just_audio` ga sporoči
+  /// šele po odprtju trenutnega vira, zato tedaj uskladimo queue in trenutni
+  /// MediaItem (notifikacija, lock-screen ter oba predvajalnika v UI).
+  void _handleDurationChanged(Duration? duration) {
+    if (duration == null || duration <= Duration.zero) return;
+
+    final queueItemId = _currentQueueItemId();
+    if (queueItemId == null) return;
+    final updated = updateQueueItemDuration(queue.value, queueItemId, duration);
+    if (identical(updated, queue.value)) return;
+
+    queue.add(updated);
+    if (mediaItem.valueOrNull?.extras?[queueItemIdExtraKey] == queueItemId) {
+      final index = updated.indexWhere(
+        (item) => item.extras?[queueItemIdExtraKey] == queueItemId,
+      );
+      if (index != -1) mediaItem.add(updated[index]);
+    }
   }
 
   /// Razreši artwork za pesem na `index` (trenutna) in `index + 1`

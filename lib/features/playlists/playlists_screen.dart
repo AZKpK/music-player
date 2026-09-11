@@ -156,6 +156,7 @@ class PlaylistDetailScreen extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final songsAsync = ref.watch(playlistSongsProvider(playlist.id));
     final overrides = ref.watch(songOverridesProvider).valueOrNull ?? const {};
+    final pendingLikes = ref.watch(pendingSongLikesProvider);
 
     return Scaffold(
       appBar: AppBar(title: Text(playlist.name)),
@@ -176,6 +177,7 @@ class PlaylistDetailScreen extends ConsumerWidget {
                 (row) => applyOverride(
                   playlistSongToSong(row),
                   overrides[row.songId],
+                  optimisticLiked: pendingLikes[row.songId],
                 ),
               )
               .toList();
