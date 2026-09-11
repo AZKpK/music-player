@@ -24,6 +24,32 @@ class QueueEntry {
   final int queueItemId;
 }
 
+/// Zgornja meja števila pesmi, ki jih [buildQueueWindow] doda v dejansko
+/// predvajalno vrsto - pri knjižnicah 3000+ pesmi bi dodajanje vseh naenkrat
+/// v `ConcatenatingAudioSource` pomenilo nepotrebno delo samo zato, da
+/// uporabnik začne predvajati eno pesem (glej `docs/plan1.1.md` #18/#24).
+const kMaxQueueLength = 250;
+
+/// Zgradi "okno" pesmi za queue: začne pri `startIndex`, doda naslednje
+/// pesmi po vrsti do konca seznama. Ne zavije nazaj na začetek: če uporabnik
+/// začne pri peti pesmi, predvajanje po zadnji pesmi ne sme spet doseči pete
+/// samo zato, ker je bil queue ustvarjen iz krožnega okna.
+///
+/// Čista funkcija (brez stanja/platform odvisnosti), da je testabilna v
+/// izolaciji - glej `test/audio_player_service_test.dart`.
+List<Song> buildQueueWindow(
+  List<Song> songs,
+  int startIndex, {
+  int maxLength = kMaxQueueLength,
+}) {
+  if (songs.isEmpty) return const [];
+  if (startIndex < 0 || startIndex >= songs.length) return const [];
+  final windowLength = min(maxLength, songs.length - startIndex);
+  return [
+    for (var i = 0; i < windowLength; i++) songs[startIndex + i],
+  ];
+}
+
 /// Zgradi nov play order, kjer trenutna pesem ostane prva:
 ///
 /// - shuffle vklopljen: trenutna pesem + preostale pesmi iz `sourceOrder`,
@@ -168,18 +194,35 @@ class AudioPlayerHandler extends BaseAudioHandler
   bool get shuffleEnabled => _shuffleMode != AudioServiceShuffleMode.none;
 
   /// Nastavi novo vrsto predvajanja (queue) in začne predvajati od `initialIndex`.
+  ///
+  /// `songs` je najprej omejen na [buildQueueWindow] (glej `docs/plan1.1.md`
+  /// #18) - pri knjižnicah 3000+ pesmi bi sicer dodajanje vseh naenkrat v
+  /// `_playlist` in razreševanje artworka zanje pomenilo nepotrebno delo
+  /// samo zato, da uporabnik začne predvajati eno pesem. Queue se objavi
+  /// takoj z osnovnimi `MediaItem`-i (brez artworka), artwork za trenutno in
+  /// naslednjo pesem pa se razreši asinhrono v ozadju (glej
+  /// [_resolveArtworkAround]).
   Future<void> loadQueue(List<Song> songs, {int initialIndex = 0}) async {
+    final windowed = buildQueueWindow(songs, initialIndex);
     final entries = [
-      for (final song in songs) QueueEntry(song, _nextQueueItemId++),
+      for (final song in windowed) QueueEntry(song, _nextQueueItemId++),
     ];
     _sourceOrder = List.of(entries);
-    queue.add(await Future.wait(entries.map(_resolveMediaItem)));
+    queue.add(entries.map(_songToMediaItem).toList());
+    // `currentIndexStream` ne odda nove vrednosti, kadar nova vrsta tako kot
+    // prejšnja začne na indeksu 0. Trenutni MediaItem zato objavimo že tu;
+    // sicer lahko PlayerScreen ob kliku na drugo pesem še prikazuje prejšnjo,
+    // čeprav just_audio že predvaja prvo pesem nove vrste.
+    if (entries.isNotEmpty) {
+      mediaItem.add(queue.value.first);
+    }
     await _playlist.clear();
     await _playlist.addAll(entries.map(_songToAudioSource).toList());
-    await _player.setAudioSource(_playlist, initialIndex: initialIndex);
+    await _player.setAudioSource(_playlist, initialIndex: 0);
     if (_shuffleMode != AudioServiceShuffleMode.none && entries.isNotEmpty) {
-      await _applyShuffleState(current: entries[initialIndex]);
+      await _applyShuffleState(current: entries[0]);
     }
+    unawaited(_resolveArtworkAround(0));
   }
 
   Future<void> addToQueue(Song song) async {
@@ -247,10 +290,12 @@ class AudioPlayerHandler extends BaseAudioHandler
   /// klicatelj (`ReorderableListView.onReorder`) mora `newIndex` ustrezno
   /// popraviti, če se element premika navzdol (standardna Flutter konvencija).
   Future<void> moveQueueItem(int oldIndex, int newIndex) async {
+    final currentQueueItemId = _currentQueueItemId();
     await _playlist.move(oldIndex, newIndex);
     final updatedQueue = [...queue.value];
     updatedQueue.insert(newIndex, updatedQueue.removeAt(oldIndex));
     queue.add(updatedQueue);
+    _publishCurrentQueueItem(preferredQueueItemId: currentQueueItemId);
   }
 
   /// Odstrani pesem na `index` iz queue-a. Če je bila trenutno predvajana
@@ -262,6 +307,7 @@ class AudioPlayerHandler extends BaseAudioHandler
   /// argumentom - override bi bil sicer neveljaven.
   @override
   Future<void> removeQueueItemAt(int index) async {
+    final currentQueueItemId = _currentQueueItemId();
     final removedId = queue.value[index].extras?[queueItemIdExtraKey] as int?;
     await _playlist.removeAt(index);
     final updatedQueue = [...queue.value]..removeAt(index);
@@ -269,6 +315,12 @@ class AudioPlayerHandler extends BaseAudioHandler
     _sourceOrder = _sourceOrder
         .where((entry) => entry.queueItemId != removedId)
         .toList();
+    _publishCurrentQueueItem(
+      // Če smo odstranili trenutno pesem, mora UI uporabiti indeks, ki ga je
+      // just_audio izbral za naslednjo pesem, ne že odstranjenega vnosa.
+      preferredQueueItemId:
+          currentQueueItemId == removedId ? null : currentQueueItemId,
+    );
   }
 
   @override
@@ -344,6 +396,7 @@ class AudioPlayerHandler extends BaseAudioHandler
   /// (samo premaknjeno) `AudioSource` instanco, tudi če se trenutno
   /// predvajana pesem znajde na drugem indeksu.
   Future<void> _applyPlayOrder(List<QueueEntry> newOrder) async {
+    final currentQueueItemId = _currentQueueItemId();
     final current = [...queue.value];
     for (var i = 0; i < newOrder.length; i++) {
       final fromIndex = current.indexWhere(
@@ -354,6 +407,43 @@ class AudioPlayerHandler extends BaseAudioHandler
       current.insert(i, current.removeAt(fromIndex));
     }
     queue.add(current);
+    _publishCurrentQueueItem(preferredQueueItemId: currentQueueItemId);
+  }
+
+  /// Identiteta trenutne skladbe je stabilna tudi, kadar se njen indeks v
+  /// `ConcatenatingAudioSource` spremeni zaradi shuffle/reorder/remove.
+  /// `currentIndexStream` lahko pri takšni spremembi odda dogodek še preden
+  /// je nova `queue` objavljena (ali ga sploh ne odda), zato ga po vsaki
+  /// strukturni spremembi uskladimo z že objavljeno vrsto.
+  int? _currentQueueItemId() {
+    final index = _player.currentIndex;
+    if (index == null || index < 0 || index >= queue.value.length) return null;
+    return queue.value[index].extras?[queueItemIdExtraKey] as int?;
+  }
+
+  void _publishCurrentQueueItem({int? preferredQueueItemId}) {
+    final currentQueue = queue.value;
+    if (currentQueue.isEmpty) {
+      mediaItem.add(null);
+      return;
+    }
+
+    var index = preferredQueueItemId == null
+        ? -1
+        : currentQueue.indexWhere(
+            (item) =>
+                item.extras?[queueItemIdExtraKey] == preferredQueueItemId,
+          );
+    if (index == -1) {
+      index = _player.currentIndex ?? -1;
+    }
+    if (index < 0 || index >= currentQueue.length) {
+      mediaItem.add(null);
+      return;
+    }
+
+    mediaItem.add(currentQueue[index]);
+    unawaited(_resolveArtworkAround(index));
   }
 
   @override
@@ -385,8 +475,57 @@ class AudioPlayerHandler extends BaseAudioHandler
   }
 
   void _handleCurrentIndexChanged(int? index) {
-    if (index == null || index >= queue.value.length) return;
+    if (index == null || index < 0 || index >= queue.value.length) return;
     mediaItem.add(queue.value[index]);
+    unawaited(_resolveArtworkAround(index));
+  }
+
+  /// Razreši artwork za pesem na `index` (trenutna) in `index + 1`
+  /// (naslednja) - glej [loadQueue] in `docs/plan1.1.md` #18 (lazy artwork).
+  /// Pesmi dlje v queue-u dobijo artwork šele, ko postanejo trenutne/
+  /// naslednje (prek [_handleCurrentIndexChanged]).
+  Future<void> _resolveArtworkAround(int index) async {
+    await _resolveArtworkForIndex(index);
+    await _resolveArtworkForIndex(index + 1);
+  }
+
+  /// Razreši in objavi artwork za queue vnos na `index`, če ga ta še nima.
+  Future<void> _resolveArtworkForIndex(int index) async {
+    final currentQueue = queue.value;
+    if (index < 0 || index >= currentQueue.length) return;
+    final item = currentQueue[index];
+    if (item.artUri != null) return;
+    final queueItemId = item.extras?[queueItemIdExtraKey] as int?;
+    if (queueItemId == null) return;
+
+    QueueEntry? entry;
+    for (final candidate in _sourceOrder) {
+      if (candidate.queueItemId == queueItemId) {
+        entry = candidate;
+        break;
+      }
+    }
+    if (entry == null) return;
+
+    final artUri = await _libraryService.resolveArtwork(entry.song.id);
+    if (artUri == null) return;
+    _updateQueueItemArtwork(queueItemId, artUri);
+  }
+
+  /// Posodobi `artUri` za queue vnos z `queueItemId` v `queue` in - če gre za
+  /// trenutno predvajano pesem - tudi v `mediaItem` (notifikacija/lock-screen).
+  void _updateQueueItemArtwork(int queueItemId, Uri artUri) {
+    final currentQueue = queue.value;
+    final index = currentQueue.indexWhere(
+      (item) => item.extras?[queueItemIdExtraKey] == queueItemId,
+    );
+    if (index == -1) return;
+    final updated = [...currentQueue];
+    updated[index] = updated[index].copyWith(artUri: artUri);
+    queue.add(updated);
+    if (mediaItem.valueOrNull?.extras?[queueItemIdExtraKey] == queueItemId) {
+      mediaItem.add(updated[index]);
+    }
   }
 
   void _broadcastState(PlaybackEvent event) {

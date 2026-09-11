@@ -36,6 +36,19 @@ class QueueScreen extends ConsumerWidget {
           ? const Center(child: Text('Vrsta predvajanja je prazna'))
           : ReorderableListView.builder(
               itemCount: queue.length,
+              // Med vlečenjem uporabimo isti Material kot pri navadni vrstici.
+              // Privzeti proxy doda ločen, animiran overlay, zaradi katerega so
+              // se ob spustu premaknjene vrstice vidno "prižigale".
+              proxyDecorator: (child, index, animation) => AnimatedBuilder(
+                animation: animation,
+                builder: (context, child) => Material(
+                  color: Theme.of(context).scaffoldBackgroundColor,
+                  elevation: 2,
+                  shadowColor: Colors.black26,
+                  child: child,
+                ),
+                child: child,
+              ),
               onReorder: (oldIndex, newIndex) {
                 // ReorderableListView poda `newIndex` v smislu vstavljanja
                 // pred odstranitvijo elementa - pri premiku navzdol ga je

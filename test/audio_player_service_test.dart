@@ -103,6 +103,72 @@ void main() {
     });
   });
 
+  group('buildQueueWindow', () {
+    test('empty input returns empty list', () {
+      expect(buildQueueWindow([], 0), isEmpty);
+    });
+
+    test('maxLength > remaining length returns songs through the end', () {
+      final songs = [_song('a'), _song('b'), _song('c')];
+
+      final result = buildQueueWindow(songs, 1, maxLength: 10);
+
+      expect(result.map((s) => s.id).toList(), ['b', 'c']);
+    });
+
+    test('starting at the last song returns only that song', () {
+      final songs = [_song('a'), _song('b'), _song('c')];
+
+      final result = buildQueueWindow(songs, 2, maxLength: 3);
+
+      expect(result.map((s) => s.id).toList(), ['c']);
+    });
+
+    test('maxLength < length returns a partial window', () {
+      final songs = [
+        _song('a'),
+        _song('b'),
+        _song('c'),
+        _song('d'),
+        _song('e'),
+      ];
+
+      final result = buildQueueWindow(songs, 3, maxLength: 4);
+
+      expect(result.map((s) => s.id).toList(), ['d', 'e']);
+    });
+
+    test('startIndex = 0 starts at the beginning', () {
+      final songs = [_song('a'), _song('b'), _song('c')];
+
+      final result = buildQueueWindow(songs, 0, maxLength: 2);
+
+      expect(result.map((s) => s.id).toList(), ['a', 'b']);
+    });
+
+    test('startIndex = last index does not wrap around', () {
+      final songs = [_song('a'), _song('b'), _song('c')];
+
+      final result = buildQueueWindow(songs, 2, maxLength: 2);
+
+      expect(result.map((s) => s.id).toList(), ['c']);
+    });
+
+    test('does not wrap around the end of the list', () {
+      final songs = [
+        _song('a'),
+        _song('b'),
+        _song('c'),
+        _song('d'),
+        _song('e'),
+      ];
+
+      final result = buildQueueWindow(songs, 4, maxLength: 4);
+
+      expect(result.map((s) => s.id).toList(), ['e']);
+    });
+  });
+
   group('duplicate queue entries', () {
     test('same song added twice gets distinct queueItemIds', () {
       final song = _song('a');
