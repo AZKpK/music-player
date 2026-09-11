@@ -58,7 +58,9 @@ class LibraryTestScreen extends ConsumerWidget {
     if (!await _ensureStoragePermission()) {
       if (context.mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Dovoljenje za dostop do glasbe je zavrnjeno')),
+          const SnackBar(
+            content: Text('Dovoljenje za dostop do glasbe je zavrnjeno'),
+          ),
         );
       }
       return;
@@ -72,7 +74,9 @@ class LibraryTestScreen extends ConsumerWidget {
 
     if (songs.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('V izbrani mapi ni najdenih audio datotek')),
+        const SnackBar(
+          content: Text('V izbrani mapi ni najdenih audio datotek'),
+        ),
       );
       return;
     }
@@ -89,13 +93,15 @@ class LibraryTestScreen extends ConsumerWidget {
 
     final songs = result.files
         .where((f) => f.path != null)
-        .map((f) => Song(
-              id: f.path!,
-              title: p.basenameWithoutExtension(f.path!),
-              artist: 'Neznan izvajalec',
-              album: 'Neznan album',
-              filePath: f.path!,
-            ))
+        .map(
+          (f) => Song(
+            id: f.path!,
+            title: p.basenameWithoutExtension(f.path!),
+            artist: 'Neznan izvajalec',
+            album: 'Neznan album',
+            filePath: f.path!,
+          ),
+        )
         .toList();
 
     if (songs.isEmpty || !context.mounted) return;
@@ -117,8 +123,8 @@ class LibraryTestScreen extends ConsumerWidget {
     // blokiral navigacijo na player zaslon do konca prve pesmi.
     unawaited(handler.play());
 
-    Navigator.of(context).push(
-      MaterialPageRoute(builder: (_) => const PlayerScreen()),
-    );
+    Navigator.of(
+      context,
+    ).push(MaterialPageRoute(builder: (_) => const PlayerScreen()));
   }
 }

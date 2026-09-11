@@ -18,9 +18,12 @@ Future<void> showEditSongMetadataDialog(
   final artistController = TextEditingController(text: song.artist);
   final albumController = TextEditingController(text: song.album);
   final genreController = TextEditingController(text: song.genre ?? '');
-  final yearController = TextEditingController(text: song.year?.toString() ?? '');
-  final trackController =
-      TextEditingController(text: song.trackNumber?.toString() ?? '');
+  final yearController = TextEditingController(
+    text: song.year?.toString() ?? '',
+  );
+  final trackController = TextEditingController(
+    text: song.trackNumber?.toString() ?? '',
+  );
   final formKey = GlobalKey<FormState>();
 
   final saved = await showDialog<bool>(
@@ -36,7 +39,8 @@ Future<void> showEditSongMetadataDialog(
               TextFormField(
                 controller: titleController,
                 decoration: const InputDecoration(labelText: 'Naslov'),
-                validator: (v) => (v == null || v.trim().isEmpty) ? 'Obvezno' : null,
+                validator: (v) =>
+                    (v == null || v.trim().isEmpty) ? 'Obvezno' : null,
               ),
               TextFormField(
                 controller: artistController,
@@ -58,8 +62,9 @@ Future<void> showEditSongMetadataDialog(
               ),
               TextFormField(
                 controller: trackController,
-                decoration:
-                    const InputDecoration(labelText: 'Mesto na albumu (1., 2. ...)'),
+                decoration: const InputDecoration(
+                  labelText: 'Mesto na albumu (1., 2. ...)',
+                ),
                 keyboardType: TextInputType.number,
                 validator: (v) => _validateOptionalInt(v, 'Mesto na albumu'),
               ),
@@ -86,14 +91,18 @@ Future<void> showEditSongMetadataDialog(
 
   if (saved != true) return;
 
-  await ref.read(appDatabaseProvider).upsertOverride(
+  await ref
+      .read(appDatabaseProvider)
+      .upsertOverride(
         SongOverridesCompanion(
           songId: Value(song.id),
           title: Value(titleController.text.trim()),
           artist: Value(artistController.text.trim()),
           album: Value(albumController.text.trim()),
           genre: Value(
-            genreController.text.trim().isEmpty ? null : genreController.text.trim(),
+            genreController.text.trim().isEmpty
+                ? null
+                : genreController.text.trim(),
           ),
           year: Value(int.tryParse(yearController.text.trim())),
           trackNumber: Value(int.tryParse(trackController.text.trim())),
@@ -103,5 +112,7 @@ Future<void> showEditSongMetadataDialog(
 
 String? _validateOptionalInt(String? value, String fieldLabel) {
   if (value == null || value.trim().isEmpty) return null;
-  return int.tryParse(value.trim()) == null ? '$fieldLabel mora biti število' : null;
+  return int.tryParse(value.trim()) == null
+      ? '$fieldLabel mora biti število'
+      : null;
 }

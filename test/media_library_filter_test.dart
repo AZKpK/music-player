@@ -28,9 +28,24 @@ Song _song({
 
 void main() {
   final songs = [
-    _song(id: '1', title: 'Mr. Brightside', artist: 'The Killers', album: 'Hot Fuss'),
-    _song(id: '2', title: 'Take Me Out', artist: 'Franz Ferdinand', album: 'Franz Ferdinand'),
-    _song(id: '3', title: 'Somebody Told Me', artist: 'The Killers', album: 'Hot Fuss'),
+    _song(
+      id: '1',
+      title: 'Mr. Brightside',
+      artist: 'The Killers',
+      album: 'Hot Fuss',
+    ),
+    _song(
+      id: '2',
+      title: 'Take Me Out',
+      artist: 'Franz Ferdinand',
+      album: 'Franz Ferdinand',
+    ),
+    _song(
+      id: '3',
+      title: 'Somebody Told Me',
+      artist: 'The Killers',
+      album: 'Hot Fuss',
+    ),
   ];
 
   test('prazen query vrne vso knjižnico nespremenjeno', () {

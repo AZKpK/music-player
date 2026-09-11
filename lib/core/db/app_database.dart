@@ -70,18 +70,19 @@ class AppDatabase extends _$AppDatabase {
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
-        onCreate: (m) => m.createAll(),
-        onUpgrade: (m, from, to) async {
-          if (from < 2) {
-            await m.createTable(songOverrides);
-          }
-        },
-      );
+    onCreate: (m) => m.createAll(),
+    onUpgrade: (m, from, to) async {
+      if (from < 2) {
+        await m.createTable(songOverrides);
+      }
+    },
+  );
 
   /// Vse playliste, sortirane po imenu.
   Stream<List<Playlist>> watchAllPlaylists() {
-    return (select(playlists)..orderBy([(t) => OrderingTerm(expression: t.name)]))
-        .watch();
+    return (select(
+      playlists,
+    )..orderBy([(t) => OrderingTerm(expression: t.name)])).watch();
   }
 
   /// Pesmi znotraj playliste, sortirane po vrstnem redu dodajanja.
@@ -97,8 +98,9 @@ class AppDatabase extends _$AppDatabase {
   }
 
   Future<void> renamePlaylist(int id, String newName) {
-    return (update(playlists)..where((t) => t.id.equals(id)))
-        .write(PlaylistsCompanion(name: Value(newName)));
+    return (update(playlists)..where((t) => t.id.equals(id))).write(
+      PlaylistsCompanion(name: Value(newName)),
+    );
   }
 
   Future<void> deletePlaylist(int id) {
@@ -107,11 +109,12 @@ class AppDatabase extends _$AppDatabase {
 
   /// Doda pesem na konec playliste.
   Future<void> addSongToPlaylist(int playlistId, Song song) async {
-    final currentCount = await (selectOnly(playlistSongs)
-          ..addColumns([playlistSongs.id.count()])
-          ..where(playlistSongs.playlistId.equals(playlistId)))
-        .map((row) => row.read(playlistSongs.id.count()) ?? 0)
-        .getSingle();
+    final currentCount =
+        await (selectOnly(playlistSongs)
+              ..addColumns([playlistSongs.id.count()])
+              ..where(playlistSongs.playlistId.equals(playlistId)))
+            .map((row) => row.read(playlistSongs.id.count()) ?? 0)
+            .getSingle();
 
     await into(playlistSongs).insert(
       PlaylistSongsCompanion.insert(
@@ -128,15 +131,17 @@ class AppDatabase extends _$AppDatabase {
   }
 
   Future<void> removeSongFromPlaylist(int playlistSongRowId) {
-    return (delete(playlistSongs)..where((t) => t.id.equals(playlistSongRowId))).go();
+    return (delete(
+      playlistSongs,
+    )..where((t) => t.id.equals(playlistSongRowId))).go();
   }
 
   /// Vsi ročni popravki metapodatkov, ključani po `songId` - za reaktivno
   /// spajanje z osnovno MediaStore knjižnico v `librarySongsProvider`.
   Stream<Map<String, SongOverride>> watchAllOverrides() {
-    return select(songOverrides).watch().map(
-          (rows) => {for (final row in rows) row.songId: row},
-        );
+    return select(
+      songOverrides,
+    ).watch().map((rows) => {for (final row in rows) row.songId: row});
   }
 
   /// Delno posodobi (ali ustvari) popravek za eno pesem - polja, ki niso
@@ -166,13 +171,15 @@ class AppDatabase extends _$AppDatabase {
 
 /// Pretvori shranjeno vrstico playliste nazaj v [Song] za predvajanje.
 Song playlistSongToSong(PlaylistSong row) => Song(
-      id: row.songId,
-      title: row.title,
-      artist: row.artist,
-      album: row.album,
-      filePath: row.filePath,
-      duration: row.durationMs != null ? Duration(milliseconds: row.durationMs!) : null,
-    );
+  id: row.songId,
+  title: row.title,
+  artist: row.artist,
+  album: row.album,
+  filePath: row.filePath,
+  duration: row.durationMs != null
+      ? Duration(milliseconds: row.durationMs!)
+      : null,
+);
 
 LazyDatabase _openConnection() {
   return LazyDatabase(() async {

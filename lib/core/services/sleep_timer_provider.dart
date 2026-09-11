@@ -58,5 +58,5 @@ class SleepTimerController extends StateNotifier<Duration?> {
 /// Preostali čas sleep timerja, `null` če ni aktiven.
 final sleepTimerProvider =
     StateNotifierProvider<SleepTimerController, Duration?>((ref) {
-  return SleepTimerController(ref);
-});
+      return SleepTimerController(ref);
+    });

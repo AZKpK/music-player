@@ -15,7 +15,9 @@ final playlistsProvider = StreamProvider<List<Playlist>>((ref) {
   return ref.watch(appDatabaseProvider).watchAllPlaylists();
 });
 
-final playlistSongsProvider =
-    StreamProvider.family<List<PlaylistSong>, int>((ref, playlistId) {
+final playlistSongsProvider = StreamProvider.family<List<PlaylistSong>, int>((
+  ref,
+  playlistId,
+) {
   return ref.watch(appDatabaseProvider).watchPlaylistSongs(playlistId);
 });

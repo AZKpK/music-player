@@ -54,7 +54,8 @@ class _LibraryScreenState extends ConsumerState<LibraryScreen> {
                     border: InputBorder.none,
                   ),
                   onChanged: (value) =>
-                      ref.read(librarySearchQueryProvider.notifier).state = value,
+                      ref.read(librarySearchQueryProvider.notifier).state =
+                          value,
                 )
               : const Text('Knjižnica'),
           actions: [
@@ -140,7 +141,10 @@ class _LibraryScreenState extends ConsumerState<LibraryScreen> {
               children: [
                 const _AllSongsTab(),
                 _GroupedTab(groupsProvider: songsByArtistProvider),
-                _GroupedTab(groupsProvider: songsByAlbumProvider, sortByTrack: true),
+                _GroupedTab(
+                  groupsProvider: songsByAlbumProvider,
+                  sortByTrack: true,
+                ),
                 const _LikedSongsTab(),
               ],
             );
@@ -165,7 +169,10 @@ class _ErrorView extends StatelessWidget {
         children: [
           Text(message, textAlign: TextAlign.center),
           const SizedBox(height: 16),
-          ElevatedButton(onPressed: onRetry, child: const Text('Poskusi znova')),
+          ElevatedButton(
+            onPressed: onRetry,
+            child: const Text('Poskusi znova'),
+          ),
         ],
       ),
     );
@@ -180,7 +187,8 @@ class _AllSongsTab extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final songs = ref.watch(displayedLibrarySongsProvider).valueOrNull ?? const [];
+    final songs =
+        ref.watch(displayedLibrarySongsProvider).valueOrNull ?? const [];
     if (songs.isEmpty) {
       return const Center(child: Text('Ni zadetkov'));
     }
@@ -225,7 +233,11 @@ class _SongListView extends ConsumerWidget {
             mainAxisSize: MainAxisSize.min,
             children: [
               if (song.liked)
-                Icon(Icons.favorite, size: 18, color: Theme.of(context).colorScheme.primary),
+                Icon(
+                  Icons.favorite,
+                  size: 18,
+                  color: Theme.of(context).colorScheme.primary,
+                ),
               IconButton(
                 icon: const Icon(Icons.more_vert),
                 tooltip: 'Dejanja',
@@ -271,7 +283,9 @@ class _GroupedTab extends ConsumerWidget {
                 MaterialPageRoute(
                   builder: (_) => _GroupSongsScreen(
                     title: name,
-                    songs: sortByTrack ? _sortGroupSongs(groupSongs) : groupSongs,
+                    songs: sortByTrack
+                        ? _sortGroupSongs(groupSongs)
+                        : groupSongs,
                   ),
                 ),
               ),
@@ -330,7 +344,7 @@ Future<void> _playFrom(
 
   unawaited(handler.play());
 
-  Navigator.of(context).push(
-    MaterialPageRoute(builder: (_) => const PlayerScreen()),
-  );
+  Navigator.of(
+    context,
+  ).push(MaterialPageRoute(builder: (_) => const PlayerScreen()));
 }

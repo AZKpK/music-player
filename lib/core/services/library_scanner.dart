@@ -43,12 +43,14 @@ Future<List<Song>> scanFolderForSongs(String rootPath) async {
   files.sort((a, b) => a.path.compareTo(b.path));
 
   return files
-      .map((f) => Song(
-            id: f.path,
-            title: p.basenameWithoutExtension(f.path),
-            artist: p.basename(p.dirname(f.path)),
-            album: p.basename(p.dirname(f.path)),
-            filePath: f.path,
-          ))
+      .map(
+        (f) => Song(
+          id: f.path,
+          title: p.basenameWithoutExtension(f.path),
+          artist: p.basename(p.dirname(f.path)),
+          album: p.basename(p.dirname(f.path)),
+          filePath: f.path,
+        ),
+      )
       .toList();
 }

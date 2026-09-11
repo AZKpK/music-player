@@ -35,7 +35,9 @@ Future<void> showSongActionsSheet(
               await ref.read(audioHandlerProvider).insertNext(song);
               if (context.mounted) {
                 ScaffoldMessenger.of(context).showSnackBar(
-                  SnackBar(content: Text('"${song.title}" bo predvajana naslednja')),
+                  SnackBar(
+                    content: Text('"${song.title}" bo predvajana naslednja'),
+                  ),
                 );
               }
             },
@@ -50,7 +52,9 @@ Future<void> showSongActionsSheet(
           ),
           ListTile(
             leading: Icon(song.liked ? Icons.favorite : Icons.favorite_border),
-            title: Text(song.liked ? 'Odstrani iz priljubljenih' : 'Priljubljena'),
+            title: Text(
+              song.liked ? 'Odstrani iz priljubljenih' : 'Priljubljena',
+            ),
             onTap: () {
               Navigator.of(sheetContext).pop();
               ref.read(appDatabaseProvider).setLiked(song.id, !song.liked);
@@ -74,7 +78,10 @@ Future<void> showSongActionsSheet(
           ),
           const Divider(height: 1),
           ListTile(
-            leading: Icon(Icons.delete_outline, color: Theme.of(context).colorScheme.error),
+            leading: Icon(
+              Icons.delete_outline,
+              color: Theme.of(context).colorScheme.error,
+            ),
             title: Text(
               'Izbriši',
               style: TextStyle(color: Theme.of(context).colorScheme.error),
@@ -90,7 +97,11 @@ Future<void> showSongActionsSheet(
   );
 }
 
-Future<void> _changeArtwork(BuildContext context, WidgetRef ref, Song song) async {
+Future<void> _changeArtwork(
+  BuildContext context,
+  WidgetRef ref,
+  Song song,
+) async {
   final result = await FilePicker.platform.pickFiles(type: FileType.image);
   final pickedPath = result?.files.single.path;
   if (pickedPath == null) return;
@@ -104,11 +115,16 @@ Future<void> _changeArtwork(BuildContext context, WidgetRef ref, Song song) asyn
   // izvirna izbrana datoteka je lahko v cache/temp mapi, ki jo OS kadarkoli
   // počisti.
   final destination = File(
-    p.join(artworkDir.path, '${_safeFileName(song.id)}${p.extension(pickedPath)}'),
+    p.join(
+      artworkDir.path,
+      '${_safeFileName(song.id)}${p.extension(pickedPath)}',
+    ),
   );
   await File(pickedPath).copy(destination.path);
 
-  await ref.read(appDatabaseProvider).upsertOverride(
+  await ref
+      .read(appDatabaseProvider)
+      .upsertOverride(
         SongOverridesCompanion(
           songId: Value(song.id),
           artworkPath: Value(destination.path),
@@ -147,7 +163,9 @@ Future<void> showAddToPlaylistSheet(
                   content: TextField(
                     controller: controller,
                     autofocus: true,
-                    decoration: const InputDecoration(hintText: 'Ime playliste'),
+                    decoration: const InputDecoration(
+                      hintText: 'Ime playliste',
+                    ),
                   ),
                   actions: [
                     TextButton(
@@ -155,8 +173,9 @@ Future<void> showAddToPlaylistSheet(
                       child: const Text('Prekliči'),
                     ),
                     TextButton(
-                      onPressed: () =>
-                          Navigator.of(dialogContext).pop(controller.text.trim()),
+                      onPressed: () => Navigator.of(
+                        dialogContext,
+                      ).pop(controller.text.trim()),
                       child: const Text('Ustvari'),
                     ),
                   ],
@@ -230,4 +249,5 @@ Future<void> _deleteSong(BuildContext context, WidgetRef ref, Song song) async {
   );
 }
 
-String _safeFileName(String songId) => songId.replaceAll(RegExp(r'[^A-Za-z0-9_-]'), '_');
+String _safeFileName(String songId) =>
+    songId.replaceAll(RegExp(r'[^A-Za-z0-9_-]'), '_');

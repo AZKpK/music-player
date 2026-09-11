@@ -172,7 +172,12 @@ class PlaylistDetailScreen extends ConsumerWidget {
           // po `PlaylistSong.id`, zato jih tu spojimo enako kot v
           // `librarySongsProvider` - `applyOverride`.
           final songs = rows
-              .map((row) => applyOverride(playlistSongToSong(row), overrides[row.songId]))
+              .map(
+                (row) => applyOverride(
+                  playlistSongToSong(row),
+                  overrides[row.songId],
+                ),
+              )
               .toList();
           return ListView.builder(
             itemCount: rows.length,
@@ -188,7 +193,11 @@ class PlaylistDetailScreen extends ConsumerWidget {
                   mainAxisSize: MainAxisSize.min,
                   children: [
                     if (song.liked)
-                      Icon(Icons.favorite, size: 18, color: Theme.of(context).colorScheme.primary),
+                      Icon(
+                        Icons.favorite,
+                        size: 18,
+                        color: Theme.of(context).colorScheme.primary,
+                      ),
                     IconButton(
                       icon: const Icon(Icons.more_vert),
                       tooltip: 'Dejanja',
@@ -225,8 +234,8 @@ class PlaylistDetailScreen extends ConsumerWidget {
     // await-a, da ne blokira takojšnje navigacije na now-playing zaslon.
     unawaited(handler.play());
 
-    Navigator.of(context).push(
-      MaterialPageRoute(builder: (_) => const PlayerScreen()),
-    );
+    Navigator.of(
+      context,
+    ).push(MaterialPageRoute(builder: (_) => const PlayerScreen()));
   }
 }
