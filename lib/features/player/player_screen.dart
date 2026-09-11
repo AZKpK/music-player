@@ -9,6 +9,7 @@ import '../../core/services/sleep_timer_provider.dart';
 import '../../core/navigation/player_screen_visibility.dart';
 import '../../shared/widgets/song_artwork.dart';
 import '../library/edit_song_metadata_dialog.dart';
+import 'queue_screen.dart';
 
 /// Za koliko preskoči gumb "+5s"/"-5s".
 const _seekStep = Duration(seconds: 5);
@@ -20,6 +21,7 @@ const _sleepTimerOptions = [
   Duration(minutes: 30),
   Duration(minutes: 45),
   Duration(minutes: 60),
+  Duration(minutes: 120),
 ];
 
 /// Ponujene hitrosti predvajanja v AppBar meniju.
@@ -37,7 +39,8 @@ String _formatDuration(Duration d) {
 /// Osnovni "now playing" zaslon: naslov/artist trenutne pesmi (+ priljubljena
 /// in uredi-metapodatke gumba), seek slider z ročnim nastavljanjem pozicije
 /// in +5s/-5s gumbi, play/pause, next/prev, shuffle in repeat toggle, ter
-/// prikaz queue-a spodaj.
+/// gumb za odprtje ločenega `QueueScreen` (vrsta predvajanja - glej
+/// `docs/plan1.1.md` #15).
 class PlayerScreen extends ConsumerStatefulWidget {
   const PlayerScreen({super.key});
 
@@ -63,7 +66,6 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen> {
     final handler = ref.watch(audioHandlerProvider);
     final mediaItem = ref.watch(currentMediaItemProvider).valueOrNull;
     final playbackState = ref.watch(playbackStateProvider).valueOrNull;
-    final queue = ref.watch(queueProvider).valueOrNull ?? const [];
     final currentSong = ref.watch(currentSongProvider);
     final position =
         ref.watch(playbackPositionProvider).valueOrNull ?? Duration.zero;
@@ -107,7 +109,15 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen> {
             tooltip: sleepRemaining != null
                 ? 'Sleep timer: ${_formatDuration(sleepRemaining)}'
                 : 'Sleep timer',
-            onPressed: () => _showSleepTimerDialog(context, ref, sleepRemaining),
+            onPressed: () =>
+                _showSleepTimerDialog(context, ref, sleepRemaining),
+          ),
+          IconButton(
+            icon: const Icon(Icons.queue_music),
+            tooltip: 'Vrsta predvajanja',
+            onPressed: () => Navigator.of(
+              context,
+            ).push(MaterialPageRoute(builder: (_) => const QueueScreen())),
           ),
         ],
       ),
@@ -115,9 +125,7 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen> {
         children: [
           const SizedBox(height: 24),
           if (currentSong != null)
-            Center(
-              child: SongArtwork(song: currentSong, size: 240),
-            ),
+            Center(child: SongArtwork(song: currentSong, size: 240)),
           const SizedBox(height: 16),
           Row(
             mainAxisAlignment: MainAxisAlignment.center,
@@ -172,15 +180,19 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen> {
           Row(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              IconButton(
-                icon: const Icon(Icons.shuffle),
-                color: shuffleOn ? Theme.of(context).colorScheme.primary : null,
-                onPressed: () => handler.setShuffleMode(
-                  shuffleOn
-                      ? AudioServiceShuffleMode.none
-                      : AudioServiceShuffleMode.all,
+              if (shuffleOn)
+                IconButton.filled(
+                  icon: const Icon(Icons.shuffle),
+                  style: _toggleOnButtonStyle(context),
+                  onPressed: () =>
+                      handler.setShuffleMode(AudioServiceShuffleMode.none),
+                )
+              else
+                IconButton(
+                  icon: const Icon(Icons.shuffle),
+                  onPressed: () =>
+                      handler.setShuffleMode(AudioServiceShuffleMode.all),
                 ),
-              ),
               IconButton(
                 icon: const Icon(Icons.skip_previous),
                 onPressed: handler.skipToPrevious,
@@ -212,47 +224,20 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen> {
                 icon: const Icon(Icons.skip_next),
                 onPressed: handler.skipToNext,
               ),
-              IconButton(
-                icon: Icon(_repeatIcon(repeatMode)),
-                onPressed: () =>
-                    handler.setRepeatMode(_nextRepeatMode(repeatMode)),
-              ),
+              if (repeatMode == AudioServiceRepeatMode.none)
+                IconButton(
+                  icon: Icon(_repeatIcon(repeatMode)),
+                  onPressed: () =>
+                      handler.setRepeatMode(_nextRepeatMode(repeatMode)),
+                )
+              else
+                IconButton.filled(
+                  icon: Icon(_repeatIcon(repeatMode)),
+                  style: _toggleOnButtonStyle(context),
+                  onPressed: () =>
+                      handler.setRepeatMode(_nextRepeatMode(repeatMode)),
+                ),
             ],
-          ),
-          const Divider(height: 32),
-          Expanded(
-            child: ReorderableListView.builder(
-              itemCount: queue.length,
-              onReorder: (oldIndex, newIndex) {
-                // ReorderableListView poda `newIndex` v smislu vstavljanja
-                // pred odstranitvijo elementa - pri premiku navzdol ga je
-                // zato treba popraviti za 1 (standardna Flutter konvencija).
-                if (newIndex > oldIndex) newIndex -= 1;
-                handler.moveQueueItem(oldIndex, newIndex);
-              },
-              itemBuilder: (context, index) {
-                final item = queue[index];
-                final isCurrent = item.id == mediaItem?.id;
-                return ListTile(
-                  // `item.id` mora biti edinstven znotraj queue-a, da
-                  // `ReorderableListView` med vlečenjem pravilno sledi
-                  // premikanemu elementu (ista pesem dvakrat v queue-u je
-                  // rob primer, ki ga trenutno ne podpiramo).
-                  key: ValueKey(item.id),
-                  leading: isCurrent
-                      ? const Icon(Icons.volume_up)
-                      : Text('${index + 1}'),
-                  title: Text(item.title),
-                  subtitle: Text(item.artist ?? ''),
-                  onTap: () => handler.skipToQueueItem(index),
-                  trailing: IconButton(
-                    icon: const Icon(Icons.close),
-                    tooltip: 'Odstrani iz vrste',
-                    onPressed: () => handler.removeQueueItemAt(index),
-                  ),
-                );
-              },
-            ),
           ),
         ],
       ),
@@ -265,9 +250,20 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen> {
     return target;
   }
 
+  /// Skupen "vklopljen" izgled za shuffle/repeat toggle gumbe: sivo
+  /// zaokroženo kvadratno ozadje (namesto privzetega vijoličnega kroga pri
+  /// `IconButton.filled`), da sta oba gumba vizualno usklajena.
+  ButtonStyle _toggleOnButtonStyle(BuildContext context) =>
+      IconButton.styleFrom(
+        backgroundColor: Theme.of(context).colorScheme.surfaceContainerHighest,
+        foregroundColor: Theme.of(context).colorScheme.onSurface,
+        shape: CircleBorder(
+          side: BorderSide(color: Theme.of(context).colorScheme.outline),
+        ),
+      );
+
   IconData _repeatIcon(AudioServiceRepeatMode mode) => switch (mode) {
     AudioServiceRepeatMode.one => Icons.repeat_one,
-    AudioServiceRepeatMode.all => Icons.repeat_on,
     _ => Icons.repeat,
   };
 
