@@ -20,6 +20,28 @@ Cilj je izdelati **zelo dober, stabilen, hiter in uporabniku prijazen lokalni mu
 
 ---
 
+## STATUS IZVEDBE
+
+Stanje spodaj je primerjano z dejansko kodo in testi v repozitoriju. `flutter test`
+je ob zadnjem preverjanju uspešen. Checkboxi za ročno testiranje na napravi
+ostajajo neoznačeni, dokler tak test ni dejansko izveden.
+
+- [x] Faza 7.1 — N1 timer desync in N4 vidna indikacija shuffle-a.
+- [x] Faza 7.2 — N5 lazy artwork ter omejitev predvajalne vrste na 250 pesmi.
+- [x] Faza 7.3 — N2 lasten play order, ločen queue screen, reorder, remove,
+  clear in unikatni ID-ji podvojenih queue vnosov.
+- [x] Faza 7.4 — N6 posodobitev trajanja prek `durationStream`; V9 zaščita
+  pred napako predvajanja je že prisotna.
+- [x] Faza 7.5 — N3 A–Z hitro drsenje z `itemExtent`, `ScrollController` in
+  testiranim abecednim indeksom.
+- [x] Del Faze 7.6 — N7 trajne slike izvajalcev in albumov, migracija Drift
+  sheme ter sprememba/odstranitev slike v UI.
+- [ ] **Naslednje za implementacijo: dokončaj Fazo 7.6 — V4 group header ter
+  gumba Play all in Shuffle all na zaslonu izvajalca/albuma.**
+- [ ] Nato: Faza 7.7 — V1 `POST_NOTIFICATIONS` in V12 branding.
+
+---
+
 # 1. KONTEKST IN VLOGA
 
 ## 1.1 Tvoja vloga
@@ -1191,7 +1213,7 @@ Te vrzeli so dokumentirane v `plan1.md` skupaj z lokacijami v kodi.
 
 Vedno uporabi ta vrstni red, razen če dejansko stanje kode zahteva spremembo.
 
-## Faza 7.1
+## Faza 7.1 — zaključeno
 
 ```text
 N1 Timer desync
@@ -1200,7 +1222,7 @@ N4 Shuffle icon
 
 ---
 
-## Faza 7.2
+## Faza 7.2 — zaključeno
 
 ```text
 N5 Lazy artwork
@@ -1209,7 +1231,7 @@ N5 Queue window 250
 
 ---
 
-## Faza 7.3
+## Faza 7.3 — zaključeno
 
 ```text
 N2 Own play order
@@ -1221,7 +1243,7 @@ N2 Duplicate queue IDs
 
 ---
 
-## Faza 7.4
+## Faza 7.4 — zaključeno
 
 ```text
 N6 durationStream
@@ -1230,7 +1252,7 @@ V9 playback error protection
 
 ---
 
-## Faza 7.5
+## Faza 7.5 — zaključeno
 
 ```text
 N3 A–Z scroll
@@ -1238,7 +1260,7 @@ N3 A–Z scroll
 
 ---
 
-## Faza 7.6
+## Faza 7.6 — v teku
 
 ```text
 N7 group artwork
@@ -1246,6 +1268,15 @@ V4 group header
 Play all
 Shuffle all
 ```
+
+- [x] N7 group artwork
+- [ ] V4 group header
+- [ ] Play all
+- [ ] Shuffle all
+
+**Naslednji implementacijski korak:** na `_GroupSongsScreen` dodaj glavo
+skupine z akcijama »Predvajaj vse« in »Naključno predvajaj«, ki uporabita
+obstoječi `loadQueue()` in nato odpreta `PlayerScreen`.
 
 ---
 

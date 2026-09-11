@@ -329,8 +329,9 @@ class _SongListViewState extends ConsumerState<_SongListView> {
 }
 
 /// Zavihek "Izvajalci"/"Albumi" - najprej seznam skupin, tap odpre pesmi
-/// znotraj izbrane skupine.
-class _GroupedTab extends ConsumerWidget {
+/// znotraj izbrane skupine. Iskalno polje filtrira imena skupin, A-Z trak pa
+/// skoči do prve skupine z izbrano začetnico.
+class _GroupedTab extends ConsumerStatefulWidget {
   const _GroupedTab({required this.groupsProvider, this.sortByTrack = false});
 
   final ProviderListenable<AsyncValue<Map<String, List<Song>>>> groupsProvider;
@@ -340,72 +341,118 @@ class _GroupedTab extends ConsumerWidget {
   final bool sortByTrack;
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final groupsAsync = ref.watch(groupsProvider);
+  ConsumerState<_GroupedTab> createState() => _GroupedTabState();
+}
+
+class _GroupedTabState extends ConsumerState<_GroupedTab> {
+  static const _itemExtent = 72.0;
+  final _scrollController = ScrollController();
+
+  @override
+  void dispose() {
+    _scrollController.dispose();
+    super.dispose();
+  }
+
+  void _jumpToLetter(String letter, Map<String, int> alphabetIndex) {
+    final targetIndex = alphabetIndex[letter];
+    if (targetIndex == null || !_scrollController.hasClients) return;
+    final maxScrollExtent = _scrollController.position.maxScrollExtent;
+    final offset = (targetIndex * _itemExtent).clamp(0.0, maxScrollExtent);
+    _scrollController.jumpTo(offset);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final groupsAsync = ref.watch(widget.groupsProvider);
+    final query = ref.watch(librarySearchQueryProvider);
     return groupsAsync.when(
       loading: () => const Center(child: CircularProgressIndicator()),
       error: (error, _) => Center(child: Text('$error')),
       data: (groups) {
-        final names = groups.keys.toList()
+        final filteredGroups = filterLibraryGroups(groups, query);
+        final names = filteredGroups.keys.toList()
           ..sort((a, b) => a.toLowerCase().compareTo(b.toLowerCase()));
-        return ListView.builder(
-          itemCount: names.length,
-          itemBuilder: (context, index) {
-            final name = names[index];
-            final groupSongs = groups[name]!;
-            final groupType = sortByTrack
-                ? GroupArtworkType.album
-                : GroupArtworkType.artist;
-            return ListTile(
-              leading: GroupArtwork(
-                groupType: groupType,
-                groupKey: name,
-                songs: groupSongs,
-              ),
-              title: Text(name),
-              subtitle: Text('${groupSongs.length} pesmi'),
-              trailing: PopupMenuButton<_GroupArtworkAction>(
-                tooltip: 'Slika skupine',
-                onSelected: (action) async {
-                  switch (action) {
-                    case _GroupArtworkAction.change:
-                      await changeGroupArtwork(
-                        ref,
-                        groupType: groupType,
-                        groupKey: name,
-                      );
-                    case _GroupArtworkAction.remove:
-                      await removeGroupArtwork(
-                        ref,
-                        groupType: groupType,
-                        groupKey: name,
-                      );
-                  }
-                },
-                itemBuilder: (_) => const [
-                  PopupMenuItem(
-                    value: _GroupArtworkAction.change,
-                    child: Text('Spremeni sliko'),
+        if (names.isEmpty) return const Center(child: Text('Ni zadetkov'));
+
+        final groupType = widget.sortByTrack
+            ? GroupArtworkType.album
+            : GroupArtworkType.artist;
+        final alphabetIndex = buildAlphabetIndex(names, (name) => name);
+        return Stack(
+          children: [
+            ListView.builder(
+              controller: _scrollController,
+              itemExtent: _itemExtent,
+              itemCount: names.length,
+              itemBuilder: (context, index) {
+                final name = names[index];
+                final groupSongs = filteredGroups[name]!;
+                return ListTile(
+                  leading: GroupArtwork(
+                    groupType: groupType,
+                    groupKey: name,
+                    songs: groupSongs,
                   ),
-                  PopupMenuItem(
-                    value: _GroupArtworkAction.remove,
-                    child: Text('Odstrani sliko'),
+                  title: Text(name),
+                  subtitle: Text('${groupSongs.length} pesmi'),
+                  trailing: PopupMenuButton<_GroupArtworkAction>(
+                    tooltip: 'Slika skupine',
+                    onSelected: (action) async {
+                      switch (action) {
+                        case _GroupArtworkAction.change:
+                          await changeGroupArtwork(
+                            ref,
+                            groupType: groupType,
+                            groupKey: name,
+                          );
+                        case _GroupArtworkAction.remove:
+                          await removeGroupArtwork(
+                            ref,
+                            groupType: groupType,
+                            groupKey: name,
+                          );
+                      }
+                    },
+                    itemBuilder: (_) => const [
+                      PopupMenuItem(
+                        value: _GroupArtworkAction.change,
+                        child: Text('Spremeni sliko'),
+                      ),
+                      PopupMenuItem(
+                        value: _GroupArtworkAction.remove,
+                        child: Text('Odstrani sliko'),
+                      ),
+                    ],
                   ),
-                ],
-              ),
-              onTap: () => Navigator.of(context).push(
-                MaterialPageRoute(
-                  builder: (_) => _GroupSongsScreen(
-                    title: name,
-                    songs: sortByTrack
-                        ? _sortGroupSongs(groupSongs)
-                        : sortLibrarySongs(groupSongs, SongSortOption.title),
-                    sortedByTrack: sortByTrack,
+                  onTap: () => Navigator.of(context).push(
+                    MaterialPageRoute(
+                      builder: (_) => _GroupSongsScreen(
+                        title: name,
+                        songs: widget.sortByTrack
+                            ? _sortGroupSongs(groupSongs)
+                            : sortLibrarySongs(
+                                groupSongs,
+                                SongSortOption.title,
+                              ),
+                        sortedByTrack: widget.sortByTrack,
+                      ),
+                    ),
                   ),
-                ),
+                );
+              },
+            ),
+            Positioned(
+              top: 0,
+              bottom: 0,
+              right: 0,
+              child: AlphabetScrollBar(
+                availableLetters: alphabetIndex.keys.toSet(),
+                onLetterSelected: (letter) =>
+                    _jumpToLetter(letter, alphabetIndex),
               ),
-            );
-          },
+            ),
+          ],
         );
       },
     );

@@ -72,6 +72,23 @@ void main() {
     expect(filterLibrarySongs(songs, 'nekaj kar ne obstaja'), isEmpty);
   });
 
+  group('filterLibraryGroups', () {
+    final groups = <String, List<Song>>{
+      'The Killers': [songs[0], songs[2]],
+      'Franz Ferdinand': [songs[1]],
+    };
+
+    test('filtrira skupine po imenu, case-insensitive', () {
+      expect(filterLibraryGroups(groups, 'KILL'), {
+        'The Killers': [songs[0], songs[2]],
+      });
+    });
+
+    test('prazen query vrne vse skupine', () {
+      expect(filterLibraryGroups(groups, '  '), groups);
+    });
+  });
+
   group('sortLibrarySongs', () {
     final unsorted = [
       _song(

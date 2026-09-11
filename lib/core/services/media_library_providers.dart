@@ -187,6 +187,21 @@ List<Song> filterLibrarySongs(List<Song> songs, String query) {
       .toList();
 }
 
+/// Filtrira imena skupin (izvajalcev ali albumov) za isto iskalno polje kot
+/// [filterLibrarySongs]. Prazen query vrne izvirno mapo, sicer se primerja le
+/// ime skupine; tako iskanje v zavihkih »Izvajalci« in »Albumi« ne pokaže
+/// skupine zaradi naključnega naslova pesmi v njej.
+Map<String, List<Song>> filterLibraryGroups(
+  Map<String, List<Song>> groups,
+  String query,
+) {
+  final trimmed = query.trim().toLowerCase();
+  if (trimmed.isEmpty) return groups;
+  return Map.fromEntries(
+    groups.entries.where((entry) => entry.key.toLowerCase().contains(trimmed)),
+  );
+}
+
 /// Sort opcije za zavihek "Vse pesmi" (glej `library_screen.dart` sort meni).
 enum SongSortOption { title, artist, album, dateAddedDesc, duration }
 
