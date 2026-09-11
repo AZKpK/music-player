@@ -1,0 +1,7 @@
+- ko klikneš npr. shuffele/repeat song/mogoce se kej drugega se vizualni timer premakne za par sekund nazaj (na 0sec na začetku, ali pa na npr. 12sec če klikneš gumb ko je pesem na 12/14sec - vizualni timer se desynca od dejanskega timerja pesmi)
+- loči detailed currently playing song screen from the queue - add a button ki odpre stran kjer so samo naslednje pesmi prikazane - prikazane naj bodo po vrsti predvajanja, torej če uporabljam shuffle naj bodo v vrsnem redu kot se bodeo dejansko predvajale - polog tega vrsti tudi omogoči spreminjanje (drag and drop stil - npr. pesem ki je povrsti 3. lahko primem in prestavim na 1. ali 10. mesto)
+- dodaj tist button za scrollanje na desni strani, ker pri 3000 pesmih se ne da scrollat normalno do konca - dodaj tudi oznake naslovov za ta scroll thingy(# - A - Z)
+- dodaj vizual indication shuffle gumbu - lahko na isti način kot repeat, da se ozadje pobarva belo
+- ko kliknem na pesem za predvajanje naj se vrsta naredi samo 250 (kasneje prilagodljivo v nastavitvah) pesmi dolga - trenutno dobim lag spike ko kliknem predvajanje naključne pesmi saj se rabi pripraviti 3000+ dolga vrsta
+- igranje pesmi preko map je malce pomankljivo - vizualni timer pesmi ne deluje, samo sive barve (ko se premika je modre) stoji na začetku
+- omogoči nalaganje slike avtorjem (tam kjer lahko pesmi predvajaš po avtorjih) in albumom - privizeto uporabi cover image prve pesmi ampak omogoči tudi ročno zamenjavo
