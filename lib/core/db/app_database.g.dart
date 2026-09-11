@@ -1417,12 +1417,287 @@ class SongOverridesCompanion extends UpdateCompanion<SongOverride> {
   }
 }
 
+class $GroupArtworksTable extends GroupArtworks
+    with TableInfo<$GroupArtworksTable, GroupArtwork> {
+  @override
+  final GeneratedDatabase attachedDatabase;
+  final String? _alias;
+  $GroupArtworksTable(this.attachedDatabase, [this._alias]);
+  static const VerificationMeta _groupTypeMeta = const VerificationMeta(
+    'groupType',
+  );
+  @override
+  late final GeneratedColumn<String> groupType = GeneratedColumn<String>(
+    'group_type',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _groupKeyMeta = const VerificationMeta(
+    'groupKey',
+  );
+  @override
+  late final GeneratedColumn<String> groupKey = GeneratedColumn<String>(
+    'group_key',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _artworkPathMeta = const VerificationMeta(
+    'artworkPath',
+  );
+  @override
+  late final GeneratedColumn<String> artworkPath = GeneratedColumn<String>(
+    'artwork_path',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  @override
+  List<GeneratedColumn> get $columns => [groupType, groupKey, artworkPath];
+  @override
+  String get aliasedName => _alias ?? actualTableName;
+  @override
+  String get actualTableName => $name;
+  static const String $name = 'group_artworks';
+  @override
+  VerificationContext validateIntegrity(
+    Insertable<GroupArtwork> instance, {
+    bool isInserting = false,
+  }) {
+    final context = VerificationContext();
+    final data = instance.toColumns(true);
+    if (data.containsKey('group_type')) {
+      context.handle(
+        _groupTypeMeta,
+        groupType.isAcceptableOrUnknown(data['group_type']!, _groupTypeMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_groupTypeMeta);
+    }
+    if (data.containsKey('group_key')) {
+      context.handle(
+        _groupKeyMeta,
+        groupKey.isAcceptableOrUnknown(data['group_key']!, _groupKeyMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_groupKeyMeta);
+    }
+    if (data.containsKey('artwork_path')) {
+      context.handle(
+        _artworkPathMeta,
+        artworkPath.isAcceptableOrUnknown(
+          data['artwork_path']!,
+          _artworkPathMeta,
+        ),
+      );
+    } else if (isInserting) {
+      context.missing(_artworkPathMeta);
+    }
+    return context;
+  }
+
+  @override
+  Set<GeneratedColumn> get $primaryKey => {groupType, groupKey};
+  @override
+  GroupArtwork map(Map<String, dynamic> data, {String? tablePrefix}) {
+    final effectivePrefix = tablePrefix != null ? '$tablePrefix.' : '';
+    return GroupArtwork(
+      groupType: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}group_type'],
+      )!,
+      groupKey: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}group_key'],
+      )!,
+      artworkPath: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}artwork_path'],
+      )!,
+    );
+  }
+
+  @override
+  $GroupArtworksTable createAlias(String alias) {
+    return $GroupArtworksTable(attachedDatabase, alias);
+  }
+}
+
+class GroupArtwork extends DataClass implements Insertable<GroupArtwork> {
+  final String groupType;
+  final String groupKey;
+  final String artworkPath;
+  const GroupArtwork({
+    required this.groupType,
+    required this.groupKey,
+    required this.artworkPath,
+  });
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    map['group_type'] = Variable<String>(groupType);
+    map['group_key'] = Variable<String>(groupKey);
+    map['artwork_path'] = Variable<String>(artworkPath);
+    return map;
+  }
+
+  GroupArtworksCompanion toCompanion(bool nullToAbsent) {
+    return GroupArtworksCompanion(
+      groupType: Value(groupType),
+      groupKey: Value(groupKey),
+      artworkPath: Value(artworkPath),
+    );
+  }
+
+  factory GroupArtwork.fromJson(
+    Map<String, dynamic> json, {
+    ValueSerializer? serializer,
+  }) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return GroupArtwork(
+      groupType: serializer.fromJson<String>(json['groupType']),
+      groupKey: serializer.fromJson<String>(json['groupKey']),
+      artworkPath: serializer.fromJson<String>(json['artworkPath']),
+    );
+  }
+  @override
+  Map<String, dynamic> toJson({ValueSerializer? serializer}) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return <String, dynamic>{
+      'groupType': serializer.toJson<String>(groupType),
+      'groupKey': serializer.toJson<String>(groupKey),
+      'artworkPath': serializer.toJson<String>(artworkPath),
+    };
+  }
+
+  GroupArtwork copyWith({
+    String? groupType,
+    String? groupKey,
+    String? artworkPath,
+  }) => GroupArtwork(
+    groupType: groupType ?? this.groupType,
+    groupKey: groupKey ?? this.groupKey,
+    artworkPath: artworkPath ?? this.artworkPath,
+  );
+  GroupArtwork copyWithCompanion(GroupArtworksCompanion data) {
+    return GroupArtwork(
+      groupType: data.groupType.present ? data.groupType.value : this.groupType,
+      groupKey: data.groupKey.present ? data.groupKey.value : this.groupKey,
+      artworkPath: data.artworkPath.present
+          ? data.artworkPath.value
+          : this.artworkPath,
+    );
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('GroupArtwork(')
+          ..write('groupType: $groupType, ')
+          ..write('groupKey: $groupKey, ')
+          ..write('artworkPath: $artworkPath')
+          ..write(')'))
+        .toString();
+  }
+
+  @override
+  int get hashCode => Object.hash(groupType, groupKey, artworkPath);
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      (other is GroupArtwork &&
+          other.groupType == this.groupType &&
+          other.groupKey == this.groupKey &&
+          other.artworkPath == this.artworkPath);
+}
+
+class GroupArtworksCompanion extends UpdateCompanion<GroupArtwork> {
+  final Value<String> groupType;
+  final Value<String> groupKey;
+  final Value<String> artworkPath;
+  final Value<int> rowid;
+  const GroupArtworksCompanion({
+    this.groupType = const Value.absent(),
+    this.groupKey = const Value.absent(),
+    this.artworkPath = const Value.absent(),
+    this.rowid = const Value.absent(),
+  });
+  GroupArtworksCompanion.insert({
+    required String groupType,
+    required String groupKey,
+    required String artworkPath,
+    this.rowid = const Value.absent(),
+  }) : groupType = Value(groupType),
+       groupKey = Value(groupKey),
+       artworkPath = Value(artworkPath);
+  static Insertable<GroupArtwork> custom({
+    Expression<String>? groupType,
+    Expression<String>? groupKey,
+    Expression<String>? artworkPath,
+    Expression<int>? rowid,
+  }) {
+    return RawValuesInsertable({
+      if (groupType != null) 'group_type': groupType,
+      if (groupKey != null) 'group_key': groupKey,
+      if (artworkPath != null) 'artwork_path': artworkPath,
+      if (rowid != null) 'rowid': rowid,
+    });
+  }
+
+  GroupArtworksCompanion copyWith({
+    Value<String>? groupType,
+    Value<String>? groupKey,
+    Value<String>? artworkPath,
+    Value<int>? rowid,
+  }) {
+    return GroupArtworksCompanion(
+      groupType: groupType ?? this.groupType,
+      groupKey: groupKey ?? this.groupKey,
+      artworkPath: artworkPath ?? this.artworkPath,
+      rowid: rowid ?? this.rowid,
+    );
+  }
+
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    if (groupType.present) {
+      map['group_type'] = Variable<String>(groupType.value);
+    }
+    if (groupKey.present) {
+      map['group_key'] = Variable<String>(groupKey.value);
+    }
+    if (artworkPath.present) {
+      map['artwork_path'] = Variable<String>(artworkPath.value);
+    }
+    if (rowid.present) {
+      map['rowid'] = Variable<int>(rowid.value);
+    }
+    return map;
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('GroupArtworksCompanion(')
+          ..write('groupType: $groupType, ')
+          ..write('groupKey: $groupKey, ')
+          ..write('artworkPath: $artworkPath, ')
+          ..write('rowid: $rowid')
+          ..write(')'))
+        .toString();
+  }
+}
+
 abstract class _$AppDatabase extends GeneratedDatabase {
   _$AppDatabase(QueryExecutor e) : super(e);
   $AppDatabaseManager get managers => $AppDatabaseManager(this);
   late final $PlaylistsTable playlists = $PlaylistsTable(this);
   late final $PlaylistSongsTable playlistSongs = $PlaylistSongsTable(this);
   late final $SongOverridesTable songOverrides = $SongOverridesTable(this);
+  late final $GroupArtworksTable groupArtworks = $GroupArtworksTable(this);
   @override
   Iterable<TableInfo<Table, Object?>> get allTables =>
       allSchemaEntities.whereType<TableInfo<Table, Object?>>();
@@ -1431,6 +1706,7 @@ abstract class _$AppDatabase extends GeneratedDatabase {
     playlists,
     playlistSongs,
     songOverrides,
+    groupArtworks,
   ];
   @override
   StreamQueryUpdateRules get streamUpdateRules => const StreamQueryUpdateRules([
@@ -2397,6 +2673,170 @@ typedef $$SongOverridesTableProcessedTableManager =
       SongOverride,
       PrefetchHooks Function()
     >;
+typedef $$GroupArtworksTableCreateCompanionBuilder =
+    GroupArtworksCompanion Function({
+      required String groupType,
+      required String groupKey,
+      required String artworkPath,
+      Value<int> rowid,
+    });
+typedef $$GroupArtworksTableUpdateCompanionBuilder =
+    GroupArtworksCompanion Function({
+      Value<String> groupType,
+      Value<String> groupKey,
+      Value<String> artworkPath,
+      Value<int> rowid,
+    });
+
+class $$GroupArtworksTableFilterComposer
+    extends Composer<_$AppDatabase, $GroupArtworksTable> {
+  $$GroupArtworksTableFilterComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnFilters<String> get groupType => $composableBuilder(
+    column: $table.groupType,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get groupKey => $composableBuilder(
+    column: $table.groupKey,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get artworkPath => $composableBuilder(
+    column: $table.artworkPath,
+    builder: (column) => ColumnFilters(column),
+  );
+}
+
+class $$GroupArtworksTableOrderingComposer
+    extends Composer<_$AppDatabase, $GroupArtworksTable> {
+  $$GroupArtworksTableOrderingComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnOrderings<String> get groupType => $composableBuilder(
+    column: $table.groupType,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get groupKey => $composableBuilder(
+    column: $table.groupKey,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get artworkPath => $composableBuilder(
+    column: $table.artworkPath,
+    builder: (column) => ColumnOrderings(column),
+  );
+}
+
+class $$GroupArtworksTableAnnotationComposer
+    extends Composer<_$AppDatabase, $GroupArtworksTable> {
+  $$GroupArtworksTableAnnotationComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  GeneratedColumn<String> get groupType =>
+      $composableBuilder(column: $table.groupType, builder: (column) => column);
+
+  GeneratedColumn<String> get groupKey =>
+      $composableBuilder(column: $table.groupKey, builder: (column) => column);
+
+  GeneratedColumn<String> get artworkPath => $composableBuilder(
+    column: $table.artworkPath,
+    builder: (column) => column,
+  );
+}
+
+class $$GroupArtworksTableTableManager
+    extends
+        RootTableManager<
+          _$AppDatabase,
+          $GroupArtworksTable,
+          GroupArtwork,
+          $$GroupArtworksTableFilterComposer,
+          $$GroupArtworksTableOrderingComposer,
+          $$GroupArtworksTableAnnotationComposer,
+          $$GroupArtworksTableCreateCompanionBuilder,
+          $$GroupArtworksTableUpdateCompanionBuilder,
+          (
+            GroupArtwork,
+            BaseReferences<_$AppDatabase, $GroupArtworksTable, GroupArtwork>,
+          ),
+          GroupArtwork,
+          PrefetchHooks Function()
+        > {
+  $$GroupArtworksTableTableManager(_$AppDatabase db, $GroupArtworksTable table)
+    : super(
+        TableManagerState(
+          db: db,
+          table: table,
+          createFilteringComposer: () =>
+              $$GroupArtworksTableFilterComposer($db: db, $table: table),
+          createOrderingComposer: () =>
+              $$GroupArtworksTableOrderingComposer($db: db, $table: table),
+          createComputedFieldComposer: () =>
+              $$GroupArtworksTableAnnotationComposer($db: db, $table: table),
+          updateCompanionCallback:
+              ({
+                Value<String> groupType = const Value.absent(),
+                Value<String> groupKey = const Value.absent(),
+                Value<String> artworkPath = const Value.absent(),
+                Value<int> rowid = const Value.absent(),
+              }) => GroupArtworksCompanion(
+                groupType: groupType,
+                groupKey: groupKey,
+                artworkPath: artworkPath,
+                rowid: rowid,
+              ),
+          createCompanionCallback:
+              ({
+                required String groupType,
+                required String groupKey,
+                required String artworkPath,
+                Value<int> rowid = const Value.absent(),
+              }) => GroupArtworksCompanion.insert(
+                groupType: groupType,
+                groupKey: groupKey,
+                artworkPath: artworkPath,
+                rowid: rowid,
+              ),
+          withReferenceMapper: (p0) => p0
+              .map((e) => (e.readTable(table), BaseReferences(db, table, e)))
+              .toList(),
+          prefetchHooksCallback: null,
+        ),
+      );
+}
+
+typedef $$GroupArtworksTableProcessedTableManager =
+    ProcessedTableManager<
+      _$AppDatabase,
+      $GroupArtworksTable,
+      GroupArtwork,
+      $$GroupArtworksTableFilterComposer,
+      $$GroupArtworksTableOrderingComposer,
+      $$GroupArtworksTableAnnotationComposer,
+      $$GroupArtworksTableCreateCompanionBuilder,
+      $$GroupArtworksTableUpdateCompanionBuilder,
+      (
+        GroupArtwork,
+        BaseReferences<_$AppDatabase, $GroupArtworksTable, GroupArtwork>,
+      ),
+      GroupArtwork,
+      PrefetchHooks Function()
+    >;
 
 class $AppDatabaseManager {
   final _$AppDatabase _db;
@@ -2407,4 +2847,6 @@ class $AppDatabaseManager {
       $$PlaylistSongsTableTableManager(_db, _db.playlistSongs);
   $$SongOverridesTableTableManager get songOverrides =>
       $$SongOverridesTableTableManager(_db, _db.songOverrides);
+  $$GroupArtworksTableTableManager get groupArtworks =>
+      $$GroupArtworksTableTableManager(_db, _db.groupArtworks);
 }

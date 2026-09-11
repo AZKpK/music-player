@@ -219,3 +219,9 @@ final currentSongProvider = Provider<Song?>((ref) {
     liked: override?.liked ?? false,
   );
 });
+
+/// Ročno izbrane naslovnice izvajalcev in albumov.
+final groupArtworksProvider =
+    StreamProvider<Map<GroupArtworkKey, GroupArtwork>>((ref) {
+      return ref.watch(appDatabaseProvider).watchAllGroupArtworks();
+    });

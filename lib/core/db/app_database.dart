@@ -60,13 +60,23 @@ class SongOverrides extends Table {
   Set<Column> get primaryKey => {songId};
 }
 
-@DriftDatabase(tables: [Playlists, PlaylistSongs, SongOverrides])
+/// Ročno določena slika izvajalca ali albuma.
+class GroupArtworks extends Table {
+  TextColumn get groupType => text()();
+  TextColumn get groupKey => text()();
+  TextColumn get artworkPath => text()();
+
+  @override
+  Set<Column> get primaryKey => {groupType, groupKey};
+}
+
+@DriftDatabase(tables: [Playlists, PlaylistSongs, SongOverrides, GroupArtworks])
 class AppDatabase extends _$AppDatabase {
   AppDatabase() : super(_openConnection());
   AppDatabase.forTesting(super.connection);
 
   @override
-  int get schemaVersion => 2;
+  int get schemaVersion => 3;
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
@@ -74,6 +84,9 @@ class AppDatabase extends _$AppDatabase {
     onUpgrade: (m, from, to) async {
       if (from < 2) {
         await m.createTable(songOverrides);
+      }
+      if (from < 3) {
+        await m.createTable(groupArtworks);
       }
     },
   );
@@ -151,6 +164,40 @@ class AppDatabase extends _$AppDatabase {
     return into(songOverrides).insertOnConflictUpdate(companion);
   }
 
+  Stream<Map<GroupArtworkKey, GroupArtwork>> watchAllGroupArtworks() {
+    return select(groupArtworks).watch().map(
+      (rows) => {
+        for (final row in rows)
+          GroupArtworkKey(row.groupType, row.groupKey): row,
+      },
+    );
+  }
+
+  Future<void> upsertGroupArtwork({
+    required String groupType,
+    required String groupKey,
+    required String artworkPath,
+  }) {
+    return into(groupArtworks).insertOnConflictUpdate(
+      GroupArtworksCompanion.insert(
+        groupType: groupType,
+        groupKey: groupKey,
+        artworkPath: artworkPath,
+      ),
+    );
+  }
+
+  Future<void> removeGroupArtwork({
+    required String groupType,
+    required String groupKey,
+  }) {
+    return (delete(groupArtworks)..where(
+          (row) =>
+              row.groupType.equals(groupType) & row.groupKey.equals(groupKey),
+        ))
+        .go();
+  }
+
   Future<void> setLiked(String songId, bool liked) {
     return upsertOverride(
       SongOverridesCompanion(songId: Value(songId), liked: Value(liked)),
@@ -167,6 +214,23 @@ class AppDatabase extends _$AppDatabase {
     );
     await (delete(playlistSongs)..where((t) => t.songId.equals(songId))).go();
   }
+}
+
+/// Sestavljen ključ za reaktivni zemljevid [GroupArtworks].
+class GroupArtworkKey {
+  const GroupArtworkKey(this.groupType, this.groupKey);
+
+  final String groupType;
+  final String groupKey;
+
+  @override
+  bool operator ==(Object other) =>
+      other is GroupArtworkKey &&
+      other.groupType == groupType &&
+      other.groupKey == groupKey;
+
+  @override
+  int get hashCode => Object.hash(groupType, groupKey);
 }
 
 /// Pretvori shranjeno vrstico playliste nazaj v [Song] za predvajanje.

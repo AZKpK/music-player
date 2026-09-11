@@ -7,10 +7,12 @@ import '../../core/models/song.dart';
 import '../../core/services/audio_player_providers.dart';
 import '../../core/services/media_library_providers.dart';
 import '../../shared/widgets/alphabet_scroll_bar.dart';
+import '../../shared/widgets/group_artwork.dart';
 import '../../shared/widgets/song_artwork.dart';
 import '../player/player_screen.dart';
 import '../playlists/playlists_screen.dart';
 import 'library_test_screen.dart';
+import 'group_artwork_actions.dart';
 import 'song_actions.dart';
 
 /// Prava glasbena knjižnica z naprave (MediaStore preko `on_audio_query`),
@@ -351,10 +353,46 @@ class _GroupedTab extends ConsumerWidget {
           itemBuilder: (context, index) {
             final name = names[index];
             final groupSongs = groups[name]!;
+            final groupType = sortByTrack
+                ? GroupArtworkType.album
+                : GroupArtworkType.artist;
             return ListTile(
-              leading: const Icon(Icons.folder),
+              leading: GroupArtwork(
+                groupType: groupType,
+                groupKey: name,
+                songs: groupSongs,
+              ),
               title: Text(name),
               subtitle: Text('${groupSongs.length} pesmi'),
+              trailing: PopupMenuButton<_GroupArtworkAction>(
+                tooltip: 'Slika skupine',
+                onSelected: (action) async {
+                  switch (action) {
+                    case _GroupArtworkAction.change:
+                      await changeGroupArtwork(
+                        ref,
+                        groupType: groupType,
+                        groupKey: name,
+                      );
+                    case _GroupArtworkAction.remove:
+                      await removeGroupArtwork(
+                        ref,
+                        groupType: groupType,
+                        groupKey: name,
+                      );
+                  }
+                },
+                itemBuilder: (_) => const [
+                  PopupMenuItem(
+                    value: _GroupArtworkAction.change,
+                    child: Text('Spremeni sliko'),
+                  ),
+                  PopupMenuItem(
+                    value: _GroupArtworkAction.remove,
+                    child: Text('Odstrani sliko'),
+                  ),
+                ],
+              ),
               onTap: () => Navigator.of(context).push(
                 MaterialPageRoute(
                   builder: (_) => _GroupSongsScreen(
@@ -373,6 +411,8 @@ class _GroupedTab extends ConsumerWidget {
     );
   }
 }
+
+enum _GroupArtworkAction { change, remove }
 
 /// Sortira pesmi po `trackNumber` naraščajoče (brez trackNumber-ja gredo na
 /// konec), nato po naslovu - da album prikaže pesmi v pravem vrstnem redu
