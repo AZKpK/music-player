@@ -11,6 +11,7 @@ import 'package:path_provider/path_provider.dart';
 import '../../core/db/app_database.dart';
 import '../../core/models/song.dart';
 import '../../core/services/audio_player_providers.dart';
+import '../../core/services/artwork_import_service.dart';
 import '../../core/services/media_library_providers.dart';
 import '../../core/services/playlist_providers.dart';
 import 'edit_song_metadata_dialog.dart';
@@ -118,25 +119,18 @@ Future<void> _changeArtwork(
   final artworkDir = Directory(
     p.join((await getApplicationDocumentsDirectory()).path, 'artwork'),
   );
-  await artworkDir.create(recursive: true);
-
-  // Datoteko skopiramo v trajno app-storage lokacijo (ne samo shranimo pot) -
-  // izvirna izbrana datoteka je lahko v cache/temp mapi, ki jo OS kadarkoli
-  // počisti.
-  final destination = File(
-    p.join(
-      artworkDir.path,
-      '${_safeFileName(song.id)}${p.extension(pickedPath)}',
-    ),
+  final destinationPath = await ArtworkImportService().importArtwork(
+    sourcePath: pickedPath,
+    destinationDirectory: artworkDir.path,
+    fileStem: _safeFileName(song.id),
   );
-  await File(pickedPath).copy(destination.path);
 
   await ref
       .read(appDatabaseProvider)
       .upsertOverride(
         SongOverridesCompanion(
           songId: Value(song.id),
-          artworkPath: Value(destination.path),
+          artworkPath: Value(destinationPath),
         ),
       );
 }

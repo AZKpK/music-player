@@ -45,6 +45,7 @@ dependencies:
   # --- Permissions & filesystem ---
   permission_handler: ^11.3.1
   file_picker: ^8.1.6
+  image: ^4.3.0
 
   # --- State management ---
   flutter_riverpod: ^2.6.1

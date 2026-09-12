@@ -7,6 +7,7 @@ import 'package:path/path.dart' as p;
 import 'package:path_provider/path_provider.dart';
 
 import '../../core/services/playlist_providers.dart';
+import '../../core/services/artwork_import_service.dart';
 
 /// Izbere in trajno shrani ročno naslovnico skupine.
 Future<void> changeGroupArtwork(
@@ -21,21 +22,18 @@ Future<void> changeGroupArtwork(
   final artworkDir = Directory(
     p.join((await getApplicationDocumentsDirectory()).path, 'group_artwork'),
   );
-  await artworkDir.create(recursive: true);
-  final destination = File(
-    p.join(
-      artworkDir.path,
-      '${_safeFileName('$groupType-$groupKey')}${p.extension(pickedPath)}',
-    ),
+  final destinationPath = await ArtworkImportService().importArtwork(
+    sourcePath: pickedPath,
+    destinationDirectory: artworkDir.path,
+    fileStem: _safeFileName('$groupType-$groupKey'),
   );
-  await File(pickedPath).copy(destination.path);
 
   await ref
       .read(appDatabaseProvider)
       .upsertGroupArtwork(
         groupType: groupType,
         groupKey: groupKey,
-        artworkPath: destination.path,
+        artworkPath: destinationPath,
       );
 }
 
