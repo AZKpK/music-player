@@ -29,6 +29,12 @@ Future<void> showSongActionsSheet(
         shrinkWrap: true,
         children: [
           ListTile(
+            leading: const Icon(Icons.music_note),
+            title: Text(song.title),
+            subtitle: Text(song.artist),
+          ),
+          const Divider(height: 1),
+          ListTile(
             leading: const Icon(Icons.queue_music),
             title: const Text('Predvajaj naslednje'),
             onTap: () async {

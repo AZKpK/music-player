@@ -1,5 +1,7 @@
 import 'dart:async';
+import 'dart:math';
 
+import 'package:audio_service/audio_service.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
@@ -43,6 +45,8 @@ class _LibraryScreenState extends ConsumerState<LibraryScreen> {
   @override
   Widget build(BuildContext context) {
     final songsAsync = ref.watch(librarySongsProvider);
+    final displayedSongs =
+        ref.watch(displayedLibrarySongsProvider).valueOrNull ?? const <Song>[];
 
     return DefaultTabController(
       length: 4,
@@ -104,11 +108,11 @@ class _LibraryScreenState extends ConsumerState<LibraryScreen> {
                 ],
               ),
               IconButton(
-                icon: const Icon(Icons.queue_music),
-                tooltip: 'Playliste',
-                onPressed: () => Navigator.of(context).push(
-                  MaterialPageRoute(builder: (_) => const PlaylistsScreen()),
-                ),
+                icon: const Icon(Icons.play_arrow),
+                tooltip: 'Predvajaj',
+                onPressed: displayedSongs.isEmpty
+                    ? null
+                    : () => _showPlayOptions(context, displayedSongs),
               ),
               // Folder-scan ostaja kot alternativa: koristen za datoteke, ki jih
               // MediaStore še ni indeksiral (npr. ravnokar prekopirane preko adb).
@@ -126,7 +130,7 @@ class _LibraryScreenState extends ConsumerState<LibraryScreen> {
               Tab(text: 'Vse pesmi'),
               Tab(text: 'Izvajalci'),
               Tab(text: 'Albumi'),
-              Tab(text: 'Priljubljene'),
+              Tab(text: 'Playliste'),
             ],
           ),
         ),
@@ -136,22 +140,47 @@ class _LibraryScreenState extends ConsumerState<LibraryScreen> {
             message: '$error',
             onRetry: () => ref.invalidate(rawLibrarySongsProvider),
           ),
-          data: (songs) {
-            if (songs.isEmpty) {
-              return const Center(child: Text('Na napravi ni najdenih pesmi'));
-            }
-            return TabBarView(
-              children: [
-                const _AllSongsTab(),
-                _GroupedTab(groupsProvider: songsByArtistProvider),
-                _GroupedTab(
-                  groupsProvider: songsByAlbumProvider,
-                  sortByTrack: true,
-                ),
-                const _LikedSongsTab(),
-              ],
-            );
-          },
+          data: (_) => TabBarView(
+            children: [
+              const _AllSongsTab(),
+              _GroupedTab(groupsProvider: songsByArtistProvider),
+              _GroupedTab(
+                groupsProvider: songsByAlbumProvider,
+                sortByTrack: true,
+              ),
+              const PlaylistsTab(),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Future<void> _showPlayOptions(BuildContext context, List<Song> songs) async {
+    await showDialog<void>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        title: const Text('Predvajaj'),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            ListTile(
+              leading: const Icon(Icons.play_arrow),
+              title: const Text('Po vrstnem redu'),
+              onTap: () {
+                Navigator.of(dialogContext).pop();
+                _playAll(context, ref, songs, shuffle: false);
+              },
+            ),
+            ListTile(
+              leading: const Icon(Icons.shuffle),
+              title: const Text('Naključno predvajaj'),
+              onTap: () {
+                Navigator.of(dialogContext).pop();
+                _playAll(context, ref, songs, shuffle: true);
+              },
+            ),
+          ],
         ),
       ),
     );
@@ -220,24 +249,8 @@ String Function(Song song)? _alphabetKeyForSort(SongSortOption option) {
   }
 }
 
-/// Zavihek "Priljubljene" - bere [likedSongsProvider]. Vrstni red je isti kot
-/// [librarySongsProvider] (naslov, glej `MediaLibraryService.querySongs`),
-/// zato je A-Z trak vedno prikazan in indeksiran po naslovu.
-class _LikedSongsTab extends ConsumerWidget {
-  const _LikedSongsTab();
-
-  @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final songs = ref.watch(likedSongsProvider).valueOrNull ?? const [];
-    if (songs.isEmpty) {
-      return const Center(child: Text('Ni priljubljenih pesmi'));
-    }
-    return _SongListView(songs: songs, alphabetKeyOf: (song) => song.title);
-  }
-}
-
 /// Seznam pesmi z naslovnico/naslovom/izvajalcem/priljubljena-ikono/akcijami -
-/// skupna implementacija za "Vse pesmi", "Priljubljene" in `_GroupSongsScreen`
+/// skupna implementacija za "Vse pesmi" in `_GroupSongsScreen`
 /// (izvajalec/album podseznam).
 ///
 /// Fiksna `itemExtent` (Faza 7.5, P0/N3) omogoča O(1) `jumpTo(index * 64)`
@@ -284,7 +297,7 @@ class _SongListViewState extends ConsumerState<_SongListView> {
         final song = songs[index];
         return ListTile(
           leading: SongArtwork(song: song),
-          title: Text(song.title),
+          title: Text(song.title, maxLines: 1, overflow: TextOverflow.ellipsis),
           subtitle: Text(song.artist),
           onTap: () => _playFrom(context, ref, songs, index),
           trailing: Row(
@@ -308,23 +321,28 @@ class _SongListViewState extends ConsumerState<_SongListView> {
     );
 
     final alphabetKeyOf = widget.alphabetKeyOf;
-    if (alphabetKeyOf == null) return list;
+    final alphabetIndex = alphabetKeyOf == null
+        ? const <String, int>{}
+        : buildAlphabetIndex(songs, alphabetKeyOf);
+    final listWithAlphabetBar = alphabetKeyOf == null
+        ? list
+        : Stack(
+            children: [
+              list,
+              Positioned(
+                top: 0,
+                bottom: 0,
+                right: 0,
+                child: AlphabetScrollBar(
+                  availableLetters: alphabetIndex.keys.toSet(),
+                  onLetterSelected: (letter) =>
+                      _jumpToLetter(letter, alphabetIndex),
+                ),
+              ),
+            ],
+          );
 
-    final alphabetIndex = buildAlphabetIndex(songs, alphabetKeyOf);
-    return Stack(
-      children: [
-        list,
-        Positioned(
-          top: 0,
-          bottom: 0,
-          right: 0,
-          child: AlphabetScrollBar(
-            availableLetters: alphabetIndex.keys.toSet(),
-            onLetterSelected: (letter) => _jumpToLetter(letter, alphabetIndex),
-          ),
-        ),
-      ],
-    );
+    return listWithAlphabetBar;
   }
 }
 
@@ -394,7 +412,13 @@ class _GroupedTabState extends ConsumerState<_GroupedTab> {
                     groupKey: name,
                     songs: groupSongs,
                   ),
-                  title: Text(name),
+                  // Seznam ima fiksno višino; brez omejitve se dolg naslov
+                  // prelomi v drugo vrstico in se prekrije z naslednjim.
+                  title: Text(
+                    name,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                  ),
                   subtitle: Text('${groupSongs.length} pesmi'),
                   trailing: PopupMenuButton<_GroupArtworkAction>(
                     tooltip: 'Slika skupine',
@@ -414,12 +438,17 @@ class _GroupedTabState extends ConsumerState<_GroupedTab> {
                           );
                       }
                     },
-                    itemBuilder: (_) => const [
-                      PopupMenuItem(
+                    itemBuilder: (_) => [
+                      PopupMenuItem<_GroupArtworkAction>(
+                        enabled: false,
+                        child: Text(name),
+                      ),
+                      const PopupMenuDivider(),
+                      const PopupMenuItem(
                         value: _GroupArtworkAction.change,
                         child: Text('Spremeni sliko'),
                       ),
-                      PopupMenuItem(
+                      const PopupMenuItem(
                         value: _GroupArtworkAction.remove,
                         child: Text('Odstrani sliko'),
                       ),
@@ -498,9 +527,53 @@ class _GroupSongsScreen extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     return Scaffold(
       appBar: AppBar(title: Text(title)),
-      body: _SongListView(
-        songs: songs,
-        alphabetKeyOf: sortedByTrack ? null : (song) => song.title,
+      body: Column(
+        children: [
+          _PlayAllActions(songs: songs),
+          Expanded(
+            child: _SongListView(
+              songs: songs,
+              alphabetKeyOf: sortedByTrack ? null : (song) => song.title,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+/// Akciji za celoten trenutno prikazan seznam. "Predvajaj vse" vedno
+/// ponastavi shuffle, "Naključno predvajaj" pa ga vklopi pred nalaganjem
+/// vrste, zato rezultat ni odvisen od prejšnjega stanja predvajalnika.
+class _PlayAllActions extends ConsumerWidget {
+  const _PlayAllActions({required this.songs});
+
+  final List<Song> songs;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(16, 12, 16, 8),
+      child: Row(
+        children: [
+          Expanded(
+            child: FilledButton.icon(
+              key: const Key('play-all-ordered'),
+              icon: const Icon(Icons.play_arrow),
+              label: const Text('Predvajaj vse'),
+              onPressed: () => _playAll(context, ref, songs, shuffle: false),
+            ),
+          ),
+          const SizedBox(width: 8),
+          Expanded(
+            child: OutlinedButton.icon(
+              key: const Key('play-all-shuffled'),
+              icon: const Icon(Icons.shuffle),
+              label: const Text('Naključno'),
+              onPressed: () => _playAll(context, ref, songs, shuffle: true),
+            ),
+          ),
+        ],
       ),
     );
   }
@@ -522,6 +595,30 @@ Future<void> _playFrom(
 
   unawaited(handler.play());
 
+  Navigator.of(
+    context,
+  ).push(MaterialPageRoute(builder: (_) => const PlayerScreen()));
+}
+
+/// Naloži celoten prikazani seznam in odpre now-playing zaslon. Pri velikih
+/// seznamih [AudioPlayerHandler.loadQueue] sam uporabi omejeno queue okno.
+Future<void> _playAll(
+  BuildContext context,
+  WidgetRef ref,
+  List<Song> songs, {
+  required bool shuffle,
+}) async {
+  final handler = ref.read(audioHandlerProvider);
+  await handler.setShuffleMode(
+    shuffle ? AudioServiceShuffleMode.all : AudioServiceShuffleMode.none,
+  );
+  // Naključna je tudi začetna pesem; prej je bil začetni indeks vedno 0,
+  // premešan pa je bil le preostanek vrste.
+  final initialIndex = shuffle ? Random().nextInt(songs.length) : 0;
+  await handler.loadQueue(songs, initialIndex: initialIndex);
+  if (!context.mounted) return;
+
+  unawaited(handler.play());
   Navigator.of(
     context,
   ).push(MaterialPageRoute(builder: (_) => const PlayerScreen()));
