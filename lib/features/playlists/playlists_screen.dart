@@ -18,53 +18,95 @@ class PlaylistsScreen extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final playlistsAsync = ref.watch(playlistsProvider);
-
     return Scaffold(
       appBar: AppBar(title: const Text('Playliste')),
-      floatingActionButton: FloatingActionButton(
-        onPressed: () => _createPlaylist(context, ref),
-        child: const Icon(Icons.add),
-      ),
-      body: playlistsAsync.when(
-        loading: () => const Center(child: CircularProgressIndicator()),
-        error: (error, _) => Center(child: Text('$error')),
-        data: (playlists) {
-          if (playlists.isEmpty) {
-            return const Center(
-              child: Text('Ni playlist - dodaj eno z gumbom spodaj desno'),
-            );
-          }
-          return ListView.builder(
-            itemCount: playlists.length,
-            itemBuilder: (context, index) {
-              final playlist = playlists[index];
-              return ListTile(
-                leading: const Icon(Icons.queue_music),
-                title: Text(playlist.name),
-                onTap: () => Navigator.of(context).push(
-                  MaterialPageRoute(
-                    builder: (_) => PlaylistDetailScreen(playlist: playlist),
+      body: const PlaylistsTab(),
+    );
+  }
+}
+
+/// Zavihek s playlistami v knjižnici. "Priljubljene pesmi" je sistemska
+/// playlista in je zato vedno prvi element, pred uporabniškimi playlistami.
+class PlaylistsTab extends ConsumerWidget {
+  const PlaylistsTab({super.key});
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final playlistsAsync = ref.watch(playlistsProvider);
+
+    return Stack(
+      children: [
+        playlistsAsync.when(
+          loading: () => const Center(child: CircularProgressIndicator()),
+          error: (error, _) => Center(child: Text('$error')),
+          data: (playlists) {
+            return ListView.builder(
+              padding: const EdgeInsets.only(bottom: 88),
+              itemCount: playlists.length + 1,
+              itemBuilder: (context, index) {
+                if (index == 0) {
+                  return ListTile(
+                    leading: const Icon(Icons.favorite),
+                    title: const Text('Priljubljene pesmi'),
+                    onTap: () => Navigator.of(context).push(
+                      MaterialPageRoute(
+                        builder: (_) => const LikedSongsPlaylistScreen(),
+                      ),
+                    ),
+                  );
+                }
+                final playlist = playlists[index - 1];
+                return ListTile(
+                  leading: const Icon(Icons.queue_music),
+                  title: Text(
+                    playlist.name,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
                   ),
-                ),
-                trailing: PopupMenuButton<String>(
-                  onSelected: (action) {
-                    if (action == 'rename') {
-                      _renamePlaylist(context, ref, playlist);
-                    } else if (action == 'delete') {
-                      _deletePlaylist(context, ref, playlist);
-                    }
-                  },
-                  itemBuilder: (context) => const [
-                    PopupMenuItem(value: 'rename', child: Text('Preimenuj')),
-                    PopupMenuItem(value: 'delete', child: Text('Izbriši')),
-                  ],
-                ),
-              );
-            },
-          );
-        },
-      ),
+                  onTap: () => Navigator.of(context).push(
+                    MaterialPageRoute(
+                      builder: (_) => PlaylistDetailScreen(playlist: playlist),
+                    ),
+                  ),
+                  trailing: PopupMenuButton<String>(
+                    onSelected: (action) {
+                      if (action == 'rename') {
+                        _renamePlaylist(context, ref, playlist);
+                      } else if (action == 'delete') {
+                        _deletePlaylist(context, ref, playlist);
+                      }
+                    },
+                    itemBuilder: (context) => [
+                      PopupMenuItem<String>(
+                        enabled: false,
+                        child: Text(playlist.name),
+                      ),
+                      const PopupMenuDivider(),
+                      const PopupMenuItem(
+                        value: 'rename',
+                        child: Text('Preimenuj'),
+                      ),
+                      const PopupMenuItem(
+                        value: 'delete',
+                        child: Text('Izbriši'),
+                      ),
+                    ],
+                  ),
+                );
+              },
+            );
+          },
+        ),
+        Positioned(
+          right: 16,
+          bottom: 16,
+          child: FloatingActionButton(
+            tooltip: 'Nova playlista',
+            onPressed: () => _createPlaylist(context, ref),
+            child: const Icon(Icons.add),
+          ),
+        ),
+      ],
     );
   }
 
@@ -146,6 +188,59 @@ class PlaylistsScreen extends ConsumerWidget {
   }
 }
 
+/// Sistem­ska playlista priljubljenih pesmi. Ni shranjena v tabeli playlist,
+/// saj jo določa oznaka `liked` na posamezni pesmi.
+class LikedSongsPlaylistScreen extends ConsumerWidget {
+  const LikedSongsPlaylistScreen({super.key});
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final songs = ref.watch(likedSongsProvider).valueOrNull ?? const <Song>[];
+
+    return Scaffold(
+      appBar: AppBar(title: const Text('Priljubljene pesmi')),
+      body: songs.isEmpty
+          ? const Center(child: Text('Ni priljubljenih pesmi'))
+          : ListView.builder(
+              itemCount: songs.length,
+              itemBuilder: (context, index) {
+                final song = songs[index];
+                return ListTile(
+                  leading: SongArtwork(song: song),
+                  title: Text(
+                    song.title,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                  subtitle: Text(song.artist),
+                  onTap: () => _playFrom(context, ref, songs, index),
+                  trailing: IconButton(
+                    icon: const Icon(Icons.more_vert),
+                    tooltip: 'Dejanja',
+                    onPressed: () => showSongActionsSheet(context, ref, song),
+                  ),
+                );
+              },
+            ),
+    );
+  }
+
+  Future<void> _playFrom(
+    BuildContext context,
+    WidgetRef ref,
+    List<Song> songs,
+    int startIndex,
+  ) async {
+    final handler = ref.read(audioHandlerProvider);
+    await handler.loadQueue(songs, initialIndex: startIndex);
+    if (!context.mounted) return;
+    unawaited(handler.play());
+    Navigator.of(
+      context,
+    ).push(MaterialPageRoute(builder: (_) => const PlayerScreen()));
+  }
+}
+
 /// Pesmi znotraj ene playliste: predvajanje in odstranjevanje.
 class PlaylistDetailScreen extends ConsumerWidget {
   const PlaylistDetailScreen({super.key, required this.playlist});
@@ -188,7 +283,11 @@ class PlaylistDetailScreen extends ConsumerWidget {
               final song = songs[index];
               return ListTile(
                 leading: SongArtwork(song: song),
-                title: Text(song.title),
+                title: Text(
+                  song.title,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                ),
                 subtitle: Text(song.artist),
                 onTap: () => _playFrom(context, ref, songs, index),
                 trailing: Row(
