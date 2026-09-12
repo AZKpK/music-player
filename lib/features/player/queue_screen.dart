@@ -68,7 +68,7 @@ class QueueScreen extends ConsumerWidget {
                         child: Text(
                           '${index + 1}',
                           textAlign: TextAlign.center,
-                          style: const TextStyle(color: Colors.black),
+                          style: Theme.of(context).textTheme.bodyMedium,
                         ),
                       ),
                       SongArtwork(song: _songFromQueueItem(item)),
