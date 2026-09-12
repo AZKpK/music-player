@@ -8,8 +8,13 @@ import 'package:path/path.dart' as p;
 /// velika fotografija ne zaseda trajnega prostora niti ne blokira UI-ja med
 /// izbiro slike.
 class ArtworkImportService {
+  ArtworkImportService({DateTime Function()? clock})
+    : _clock = clock ?? DateTime.now;
+
   static const maxDimension = 1600;
   static const jpegQuality = 85;
+
+  final DateTime Function() _clock;
 
   Future<String> importArtwork({
     required String sourcePath,
@@ -20,7 +25,18 @@ class ArtworkImportService {
     final encoded = await compute(encodeArtworkBytes, source);
     final directory = Directory(destinationDirectory);
     await directory.create(recursive: true);
-    final destination = File(p.join(directory.path, '$fileStem.jpg'));
+    // Ne prepisuj iste datoteke: `FileImage` predpomnilnik jo identificira po
+    // poti, zato bi ob enaki poti po drugi menjavi še vedno kazal prvo sliko.
+    // Nova različica ima svojo pot, klicatelj pa po uspešnem zapisu odstrani
+    // prejšnjo kopijo.
+    final timestamp = _clock().microsecondsSinceEpoch;
+    var attempt = 0;
+    late File destination;
+    do {
+      final suffix = attempt == 0 ? '$timestamp' : '$timestamp-$attempt';
+      destination = File(p.join(directory.path, '$fileStem-$suffix.jpg'));
+      attempt++;
+    } while (await destination.exists());
     await destination.writeAsBytes(encoded);
     return destination.path;
   }

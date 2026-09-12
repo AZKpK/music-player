@@ -3,6 +3,7 @@ import 'dart:math';
 
 import 'package:audio_service/audio_service.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../core/models/song.dart';
@@ -31,6 +32,7 @@ class _LibraryScreenState extends ConsumerState<LibraryScreen> {
   static const _searchDebounce = Duration(milliseconds: 250);
 
   bool _searching = false;
+  bool _exitDialogOpen = false;
   final _searchController = TextEditingController();
   Timer? _searchTimer;
 
@@ -56,101 +58,142 @@ class _LibraryScreenState extends ConsumerState<LibraryScreen> {
     });
   }
 
+  Future<void> _confirmExit() async {
+    if (_exitDialogOpen) return;
+    _exitDialogOpen = true;
+    final exit = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        title: const Text('Zapusti aplikacijo?'),
+        content: const Text(
+          'Ali ste prepričani, da želite zapustiti aplikacijo? Predvajanje se bo ustavilo.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(dialogContext).pop(false),
+            child: const Text('Prekliči'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.of(dialogContext).pop(true),
+            child: const Text('Zapusti'),
+          ),
+        ],
+      ),
+    );
+    if (!mounted) return;
+    _exitDialogOpen = false;
+    if (exit != true) return;
+
+    await ref.read(audioHandlerProvider).stop();
+    if (mounted) await SystemNavigator.pop();
+  }
+
   @override
   Widget build(BuildContext context) {
     final songsAsync = ref.watch(librarySongsProvider);
 
-    return DefaultTabController(
-      length: 4,
-      child: Scaffold(
-        appBar: AppBar(
-          title: _searching
-              ? TextField(
-                  controller: _searchController,
-                  autofocus: true,
-                  decoration: const InputDecoration(
-                    hintText: 'Išči po naslovu/izvajalcu/albumu...',
-                    border: InputBorder.none,
-                  ),
-                  onChanged: _onSearchChanged,
-                )
-              : const Text('Knjižnica'),
-          actions: [
-            IconButton(
-              icon: Icon(_searching ? Icons.close : Icons.search),
-              tooltip: _searching ? 'Prekliči iskanje' : 'Išči',
-              onPressed: () {
-                if (_searching) {
-                  _stopSearching();
-                } else {
-                  setState(() => _searching = true);
-                }
-              },
-            ),
-            if (!_searching) ...[
-              AppSelectMenu<SongSortOption>(
-                icon: const Icon(Icons.sort),
-                tooltip: 'Sortiraj "Vse pesmi"',
-                value: ref.watch(librarySortProvider),
-                onSelected: (option) =>
-                    ref.read(librarySortProvider.notifier).state = option,
-                options: const [
-                  AppSelectOption(
-                    value: SongSortOption.title,
-                    label: 'Naslov (A-Ž)',
-                  ),
-                  AppSelectOption(
-                    value: SongSortOption.artist,
-                    label: 'Izvajalec',
-                  ),
-                  AppSelectOption(value: SongSortOption.album, label: 'Album'),
-                  AppSelectOption(
-                    value: SongSortOption.dateAddedDesc,
-                    label: 'Nedavno dodano',
-                  ),
-                  AppSelectOption(
-                    value: SongSortOption.duration,
-                    label: 'Trajanje',
-                  ),
-                ],
-              ),
-              const _PlayLibraryButton(),
-              // Folder-scan ostaja kot alternativa: koristen za datoteke, ki jih
-              // MediaStore še ni indeksiral (npr. ravnokar prekopirane preko adb).
+    return PopScope<void>(
+      canPop: false,
+      onPopInvokedWithResult: (didPop, _) {
+        if (!didPop) _confirmExit();
+      },
+      child: DefaultTabController(
+        length: 4,
+        child: Scaffold(
+          appBar: AppBar(
+            title: _searching
+                ? TextField(
+                    controller: _searchController,
+                    autofocus: true,
+                    decoration: const InputDecoration(
+                      hintText: 'Išči po naslovu/izvajalcu/albumu...',
+                      border: InputBorder.none,
+                    ),
+                    onChanged: _onSearchChanged,
+                  )
+                : const Text('Knjižnica'),
+            actions: [
               IconButton(
-                icon: const Icon(Icons.snippet_folder_outlined),
-                tooltip: 'Izberi mapo ročno (folder-scan)',
-                onPressed: () => Navigator.of(context).push(
-                  MaterialPageRoute(builder: (_) => const LibraryTestScreen()),
+                icon: Icon(_searching ? Icons.close : Icons.search),
+                tooltip: _searching ? 'Prekliči iskanje' : 'Išči',
+                onPressed: () {
+                  if (_searching) {
+                    _stopSearching();
+                  } else {
+                    setState(() => _searching = true);
+                  }
+                },
+              ),
+              if (!_searching) ...[
+                AppSelectMenu<SongSortOption>(
+                  icon: const Icon(Icons.sort),
+                  tooltip: 'Sortiraj "Vse pesmi"',
+                  value: ref.watch(librarySortProvider),
+                  onSelected: (option) =>
+                      ref.read(librarySortProvider.notifier).state = option,
+                  options: const [
+                    AppSelectOption(
+                      value: SongSortOption.title,
+                      label: 'Naslov (A-Ž)',
+                    ),
+                    AppSelectOption(
+                      value: SongSortOption.artist,
+                      label: 'Izvajalec',
+                    ),
+                    AppSelectOption(
+                      value: SongSortOption.album,
+                      label: 'Album',
+                    ),
+                    AppSelectOption(
+                      value: SongSortOption.dateAddedDesc,
+                      label: 'Nedavno dodano',
+                    ),
+                    AppSelectOption(
+                      value: SongSortOption.duration,
+                      label: 'Trajanje',
+                    ),
+                  ],
                 ),
-              ),
+                const _PlayLibraryButton(),
+                // Folder-scan ostaja kot alternativa: koristen za datoteke, ki jih
+                // MediaStore še ni indeksiral (npr. ravnokar prekopirane preko adb).
+                IconButton(
+                  icon: const Icon(Icons.snippet_folder_outlined),
+                  tooltip: 'Izberi mapo ročno (folder-scan)',
+                  onPressed: () => Navigator.of(context).push(
+                    MaterialPageRoute(
+                      builder: (_) => const LibraryTestScreen(),
+                    ),
+                  ),
+                ),
+              ],
             ],
-          ],
-          bottom: const TabBar(
-            tabs: [
-              Tab(text: 'Vse pesmi'),
-              Tab(text: 'Izvajalci'),
-              Tab(text: 'Albumi'),
-              Tab(text: 'Playliste'),
-            ],
+            bottom: const TabBar(
+              tabs: [
+                Tab(text: 'Vse pesmi'),
+                Tab(text: 'Izvajalci'),
+                Tab(text: 'Albumi'),
+                Tab(text: 'Playliste'),
+              ],
+            ),
           ),
-        ),
-        body: songsAsync.when(
-          loading: () => const Center(child: CircularProgressIndicator()),
-          error: (error, _) => _ErrorView(
-            message: '$error',
-            onRetry: () => ref.invalidate(rawLibrarySongsProvider),
-          ),
-          data: (_) => TabBarView(
-            children: [
-              const _AllSongsTab(),
-              _GroupedTab(groupsProvider: songsByArtistProvider),
-              _GroupedTab(
-                groupsProvider: songsByAlbumProvider,
-                sortByTrack: true,
-              ),
-              const PlaylistsTab(),
-            ],
+          body: songsAsync.when(
+            loading: () => const Center(child: CircularProgressIndicator()),
+            error: (error, _) => _ErrorView(
+              message: '$error',
+              onRetry: () => ref.invalidate(rawLibrarySongsProvider),
+            ),
+            data: (_) => TabBarView(
+              children: [
+                const _AllSongsTab(),
+                _GroupedTab(groupsProvider: songsByArtistProvider),
+                _GroupedTab(
+                  groupsProvider: songsByAlbumProvider,
+                  sortByTrack: true,
+                ),
+                const PlaylistsTab(),
+              ],
+            ),
           ),
         ),
       ),

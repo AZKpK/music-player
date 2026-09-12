@@ -116,6 +116,11 @@ Future<void> _changeArtwork(
   final pickedPath = result?.files.single.path;
   if (pickedPath == null) return;
 
+  final db = ref.read(appDatabaseProvider);
+  final previous = await (db.select(
+    db.songOverrides,
+  )..where((row) => row.songId.equals(song.id))).getSingleOrNull();
+
   final artworkDir = Directory(
     p.join((await getApplicationDocumentsDirectory()).path, 'artwork'),
   );
@@ -125,14 +130,23 @@ Future<void> _changeArtwork(
     fileStem: _safeFileName(song.id),
   );
 
-  await ref
-      .read(appDatabaseProvider)
-      .upsertOverride(
-        SongOverridesCompanion(
-          songId: Value(song.id),
-          artworkPath: Value(destinationPath),
-        ),
-      );
+  await db.upsertOverride(
+    SongOverridesCompanion(
+      songId: Value(song.id),
+      artworkPath: Value(destinationPath),
+    ),
+  );
+  await _deleteArtworkFile(previous?.artworkPath, except: destinationPath);
+}
+
+Future<void> _deleteArtworkFile(String? path, {String? except}) async {
+  if (path == null || path == except) return;
+  try {
+    final file = File(path);
+    if (await file.exists()) await file.delete();
+  } on FileSystemException {
+    // Prejšnja kopija je lahko že odstranjena ali nedostopna.
+  }
 }
 
 /// Prikaže bottom sheet z obstoječimi playlistami (+ možnost ustvarjanja

@@ -82,179 +82,186 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen> {
         ? _locallyUpdatedLiked ?? currentSong.liked
         : currentSong?.liked ?? false;
 
-    return Scaffold(
-      appBar: AppBar(
-        title: const Text('Predvajam'),
-        actions: [
-          AppSelectMenu<double>(
-            tooltip: 'Hitrost predvajanja',
-            value: speed,
-            onSelected: handler.setSpeed,
-            options: [
-              for (final option in _speedOptions)
-                AppSelectOption(value: option, label: '${option}x'),
-            ],
-            child: Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 12),
-              child: Center(
-                child: Text(
-                  '${speed}x',
-                  style: Theme.of(context).textTheme.labelLarge,
+    return PopScope<void>(
+      onPopInvokedWithResult: (didPop, _) {
+        // Sistemski Back zaključi prehod nekoliko pred `dispose`. Mini player
+        // zato prikažemo že ob uspešnem pop-u, ne šele ob naslednjem dotiku.
+        if (didPop) hidePlayerScreen();
+      },
+      child: Scaffold(
+        appBar: AppBar(
+          title: const Text('Predvajam'),
+          actions: [
+            AppSelectMenu<double>(
+              tooltip: 'Hitrost predvajanja',
+              value: speed,
+              onSelected: handler.setSpeed,
+              options: [
+                for (final option in _speedOptions)
+                  AppSelectOption(value: option, label: '${option}x'),
+              ],
+              child: Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 12),
+                child: Center(
+                  child: Text(
+                    '${speed}x',
+                    style: Theme.of(context).textTheme.labelLarge,
+                  ),
                 ),
               ),
             ),
-          ),
-          _SleepTimerButton(remaining: ref.watch(sleepTimerProvider)),
-          IconButton(
-            icon: const Icon(Icons.queue_music),
-            tooltip: 'Vrsta predvajanja',
-            onPressed: () => Navigator.of(
-              context,
-            ).push(MaterialPageRoute(builder: (_) => const QueueScreen())),
-          ),
-        ],
-      ),
-      body: Column(
-        children: [
-          const SizedBox(height: 24),
-          if (currentSong != null)
-            Center(child: SongArtwork(song: currentSong, size: 240)),
-          const SizedBox(height: 16),
-          Row(
-            mainAxisAlignment: MainAxisAlignment.center,
-            crossAxisAlignment: CrossAxisAlignment.center,
-            children: [
-              const SizedBox(width: 48),
-              Expanded(
-                child: Column(
-                  children: [
-                    Text(
-                      currentSong?.title ?? 'Ni izbrane pesmi',
-                      style: Theme.of(context).textTheme.titleLarge,
-                      textAlign: TextAlign.center,
-                    ),
-                    Text(
-                      currentSong?.artist ?? '',
-                      style: Theme.of(context).textTheme.bodyMedium,
-                      textAlign: TextAlign.center,
-                    ),
-                  ],
-                ),
-              ),
-              if (currentSong != null) ...[
-                IconButton(
-                  icon: Icon(
-                    displayedLiked ? Icons.favorite : Icons.favorite_border,
-                    color: displayedLiked
-                        ? Theme.of(context).colorScheme.primary
-                        : null,
-                  ),
-                  tooltip: 'Priljubljena',
-                  onPressed: () async {
-                    final nextLiked = !displayedLiked;
-                    setState(() {
-                      _locallyUpdatedLikeSongId = currentSong.id;
-                      _locallyUpdatedLiked = nextLiked;
-                    });
-
-                    try {
-                      await ref
-                          .read(songLikesControllerProvider)
-                          .setLiked(currentSong.id, nextLiked);
-                    } catch (_) {
-                      if (!mounted) return;
-                      setState(() {
-                        _locallyUpdatedLikeSongId = null;
-                        _locallyUpdatedLiked = null;
-                      });
-                    }
-                  },
-                ),
-                IconButton(
-                  icon: const Icon(Icons.edit_outlined),
-                  tooltip: 'Uredi metapodatke',
-                  onPressed: () =>
-                      showEditSongMetadataDialog(context, ref, currentSong),
-                ),
-              ] else
+            _SleepTimerButton(remaining: ref.watch(sleepTimerProvider)),
+            IconButton(
+              icon: const Icon(Icons.queue_music),
+              tooltip: 'Vrsta predvajanja',
+              onPressed: () => Navigator.of(
+                context,
+              ).push(MaterialPageRoute(builder: (_) => const QueueScreen())),
+            ),
+          ],
+        ),
+        body: Column(
+          children: [
+            const SizedBox(height: 24),
+            if (currentSong != null)
+              Center(child: SongArtwork(song: currentSong, size: 240)),
+            const SizedBox(height: 16),
+            Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              crossAxisAlignment: CrossAxisAlignment.center,
+              children: [
                 const SizedBox(width: 48),
-            ],
-          ),
-          const SizedBox(height: 16),
-          _SeekBar(duration: duration, onSeek: handler.seek),
-          Row(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              if (shuffleOn)
-                IconButton.filled(
-                  icon: const Icon(Icons.shuffle),
-                  style: _toggleOnButtonStyle(context),
-                  onPressed: () =>
-                      handler.setShuffleMode(AudioServiceShuffleMode.none),
-                )
-              else
-                IconButton(
-                  icon: const Icon(Icons.shuffle),
-                  onPressed: () =>
-                      handler.setShuffleMode(AudioServiceShuffleMode.all),
+                Expanded(
+                  child: Column(
+                    children: [
+                      Text(
+                        currentSong?.title ?? 'Ni izbrane pesmi',
+                        style: Theme.of(context).textTheme.titleLarge,
+                        textAlign: TextAlign.center,
+                      ),
+                      Text(
+                        currentSong?.artist ?? '',
+                        style: Theme.of(context).textTheme.bodyMedium,
+                        textAlign: TextAlign.center,
+                      ),
+                    ],
+                  ),
                 ),
-              IconButton(
-                icon: const Icon(Icons.skip_previous),
-                onPressed: handler.skipToPrevious,
-              ),
-              IconButton(
-                icon: const Icon(Icons.replay_5),
-                tooltip: '-5s',
-                onPressed: duration == null || duration <= Duration.zero
-                    ? null
-                    : () {
-                        final position =
-                            ref.read(playbackPositionProvider).valueOrNull ??
-                            Duration.zero;
-                        handler.seek(
-                          _clampSeek(position - _seekStep, duration),
-                        );
-                      },
-              ),
-              IconButton(
-                iconSize: 48,
-                icon: Icon(playing ? Icons.pause_circle : Icons.play_circle),
-                onPressed: playing ? handler.pause : handler.play,
-              ),
-              IconButton(
-                icon: const Icon(Icons.forward_5),
-                tooltip: '+5s',
-                onPressed: duration == null || duration <= Duration.zero
-                    ? null
-                    : () {
-                        final position =
-                            ref.read(playbackPositionProvider).valueOrNull ??
-                            Duration.zero;
-                        handler.seek(
-                          _clampSeek(position + _seekStep, duration),
-                        );
-                      },
-              ),
-              IconButton(
-                icon: const Icon(Icons.skip_next),
-                onPressed: handler.skipToNext,
-              ),
-              if (repeatMode == AudioServiceRepeatMode.none)
+                if (currentSong != null) ...[
+                  IconButton(
+                    icon: Icon(
+                      displayedLiked ? Icons.favorite : Icons.favorite_border,
+                      color: displayedLiked
+                          ? Theme.of(context).colorScheme.primary
+                          : null,
+                    ),
+                    tooltip: 'Priljubljena',
+                    onPressed: () async {
+                      final nextLiked = !displayedLiked;
+                      setState(() {
+                        _locallyUpdatedLikeSongId = currentSong.id;
+                        _locallyUpdatedLiked = nextLiked;
+                      });
+
+                      try {
+                        await ref
+                            .read(songLikesControllerProvider)
+                            .setLiked(currentSong.id, nextLiked);
+                      } catch (_) {
+                        if (!mounted) return;
+                        setState(() {
+                          _locallyUpdatedLikeSongId = null;
+                          _locallyUpdatedLiked = null;
+                        });
+                      }
+                    },
+                  ),
+                  IconButton(
+                    icon: const Icon(Icons.edit_outlined),
+                    tooltip: 'Uredi metapodatke',
+                    onPressed: () =>
+                        showEditSongMetadataDialog(context, ref, currentSong),
+                  ),
+                ] else
+                  const SizedBox(width: 48),
+              ],
+            ),
+            const SizedBox(height: 16),
+            _SeekBar(duration: duration, onSeek: handler.seek),
+            Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                if (shuffleOn)
+                  IconButton.filled(
+                    icon: const Icon(Icons.shuffle),
+                    style: _toggleOnButtonStyle(context),
+                    onPressed: () =>
+                        handler.setShuffleMode(AudioServiceShuffleMode.none),
+                  )
+                else
+                  IconButton(
+                    icon: const Icon(Icons.shuffle),
+                    onPressed: () =>
+                        handler.setShuffleMode(AudioServiceShuffleMode.all),
+                  ),
                 IconButton(
-                  icon: Icon(_repeatIcon(repeatMode)),
-                  onPressed: () =>
-                      handler.setRepeatMode(_nextRepeatMode(repeatMode)),
-                )
-              else
-                IconButton.filled(
-                  icon: Icon(_repeatIcon(repeatMode)),
-                  style: _toggleOnButtonStyle(context),
-                  onPressed: () =>
-                      handler.setRepeatMode(_nextRepeatMode(repeatMode)),
+                  icon: const Icon(Icons.skip_previous),
+                  onPressed: handler.skipToPrevious,
                 ),
-            ],
-          ),
-        ],
+                IconButton(
+                  icon: const Icon(Icons.replay_5),
+                  tooltip: '-5s',
+                  onPressed: duration == null || duration <= Duration.zero
+                      ? null
+                      : () {
+                          final position =
+                              ref.read(playbackPositionProvider).valueOrNull ??
+                              Duration.zero;
+                          handler.seek(
+                            _clampSeek(position - _seekStep, duration),
+                          );
+                        },
+                ),
+                IconButton(
+                  iconSize: 48,
+                  icon: Icon(playing ? Icons.pause_circle : Icons.play_circle),
+                  onPressed: playing ? handler.pause : handler.play,
+                ),
+                IconButton(
+                  icon: const Icon(Icons.forward_5),
+                  tooltip: '+5s',
+                  onPressed: duration == null || duration <= Duration.zero
+                      ? null
+                      : () {
+                          final position =
+                              ref.read(playbackPositionProvider).valueOrNull ??
+                              Duration.zero;
+                          handler.seek(
+                            _clampSeek(position + _seekStep, duration),
+                          );
+                        },
+                ),
+                IconButton(
+                  icon: const Icon(Icons.skip_next),
+                  onPressed: handler.skipToNext,
+                ),
+                if (repeatMode == AudioServiceRepeatMode.none)
+                  IconButton(
+                    icon: Icon(_repeatIcon(repeatMode)),
+                    onPressed: () =>
+                        handler.setRepeatMode(_nextRepeatMode(repeatMode)),
+                  )
+                else
+                  IconButton.filled(
+                    icon: Icon(_repeatIcon(repeatMode)),
+                    style: _toggleOnButtonStyle(context),
+                    onPressed: () =>
+                        handler.setRepeatMode(_nextRepeatMode(repeatMode)),
+                  ),
+              ],
+            ),
+          ],
+        ),
       ),
     );
   }

@@ -19,6 +19,14 @@ Future<void> changeGroupArtwork(
   final pickedPath = result?.files.single.path;
   if (pickedPath == null) return;
 
+  final db = ref.read(appDatabaseProvider);
+  final previous =
+      await (db.select(db.groupArtworks)..where(
+            (row) =>
+                row.groupType.equals(groupType) & row.groupKey.equals(groupKey),
+          ))
+          .getSingleOrNull();
+
   final artworkDir = Directory(
     p.join((await getApplicationDocumentsDirectory()).path, 'group_artwork'),
   );
@@ -28,13 +36,12 @@ Future<void> changeGroupArtwork(
     fileStem: _safeFileName('$groupType-$groupKey'),
   );
 
-  await ref
-      .read(appDatabaseProvider)
-      .upsertGroupArtwork(
-        groupType: groupType,
-        groupKey: groupKey,
-        artworkPath: destinationPath,
-      );
+  await db.upsertGroupArtwork(
+    groupType: groupType,
+    groupKey: groupKey,
+    artworkPath: destinationPath,
+  );
+  await _deleteArtworkFile(previous?.artworkPath, except: destinationPath);
 }
 
 /// Odstrani povezavo in lokalno kopijo ročno izbrane naslovnice skupine.
@@ -52,8 +59,13 @@ Future<void> removeGroupArtwork(
           .getSingleOrNull();
   await db.removeGroupArtwork(groupType: groupType, groupKey: groupKey);
   if (artwork == null) return;
+  await _deleteArtworkFile(artwork.artworkPath);
+}
+
+Future<void> _deleteArtworkFile(String? path, {String? except}) async {
+  if (path == null || path == except) return;
   try {
-    final file = File(artwork.artworkPath);
+    final file = File(path);
     if (await file.exists()) await file.delete();
   } on FileSystemException {
     // Povezava je že odstranjena; stara kopija ne bo več uporabljena.
