@@ -1,3 +1,5 @@
 {
-    "workbench.colorCustomizations": {}
+    "workbench.colorCustomizations": {},
+    "java.configuration.updateBuildConfiguration": "automatic",
+    "java.import.gradle.wrapper.enabled": true
 }
