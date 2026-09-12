@@ -1,14 +1,17 @@
+import 'package:audio_service/audio_service.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../core/models/song.dart';
 import '../../core/services/audio_player_providers.dart';
 import '../../core/services/audio_player_service.dart';
+import '../../shared/widgets/song_artwork.dart';
 
 /// Ločen zaslon za vrsto predvajanja (queue), ločen od `PlayerScreen`
 /// ("kaj igra zdaj"). Prikazuje dejanski play order (glej
 /// `AudioPlayerHandler`/`buildPlayOrder` - shuffle model v
 /// `audio_player_service.dart`), z reorder-om, odstranitvijo posameznega
-/// vnosa, "počisti vrsto" in tapom za skok na poljuben vnos.
+/// vnosa in tapom za skok na poljuben vnos.
 class QueueScreen extends ConsumerWidget {
   const QueueScreen({super.key});
 
@@ -22,16 +25,7 @@ class QueueScreen extends ConsumerWidget {
         ?.extras?[queueItemIdExtraKey];
 
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('Vrsta predvajanja'),
-        actions: [
-          IconButton(
-            icon: const Icon(Icons.playlist_remove),
-            tooltip: 'Počisti vrsto',
-            onPressed: queue.length <= 1 ? null : handler.clearQueue,
-          ),
-        ],
-      ),
+      appBar: AppBar(title: const Text('Vrsta predvajanja')),
       body: queue.isEmpty
           ? const Center(child: Text('Vrsta predvajanja je prazna'))
           : ReorderableListView.builder(
@@ -66,10 +60,25 @@ class QueueScreen extends ConsumerWidget {
                   // queue-u večkrat (`item.id` v tem primeru ni edinstven).
                   key: ValueKey(queueItemId ?? item.id),
                   selected: isCurrent,
-                  leading: isCurrent
-                      ? const Icon(Icons.volume_up)
-                      : Text('${index + 1}'),
-                  title: Text(item.title),
+                  leading: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      SizedBox(
+                        width: 28,
+                        child: Text(
+                          '${index + 1}',
+                          textAlign: TextAlign.center,
+                          style: const TextStyle(color: Colors.black),
+                        ),
+                      ),
+                      SongArtwork(song: _songFromQueueItem(item)),
+                    ],
+                  ),
+                  title: Text(
+                    item.title,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                  ),
                   subtitle: Text(item.artist ?? ''),
                   onTap: () => handler.skipToQueueItem(index),
                   trailing: IconButton(
@@ -83,3 +92,15 @@ class QueueScreen extends ConsumerWidget {
     );
   }
 }
+
+/// [MediaItem] ne vsebuje poti do zvočne datoteke, vendar [SongArtwork] za
+/// prikaz naslovnice potrebuje le ID in `artUri`; prazna pot zato tu zadošča.
+Song _songFromQueueItem(MediaItem item) => Song(
+  id: item.id,
+  title: item.title,
+  artist: item.artist ?? '',
+  album: item.album ?? '',
+  filePath: '',
+  duration: item.duration,
+  artUri: item.artUri,
+);
