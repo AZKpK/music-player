@@ -21,6 +21,7 @@ class SongArtwork extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final borderRadius = BorderRadius.circular(6);
+    final cacheSize = (size * MediaQuery.devicePixelRatioOf(context)).round();
 
     if (song.artUri != null) {
       return ClipRRect(
@@ -30,6 +31,8 @@ class SongArtwork extends StatelessWidget {
           width: size,
           height: size,
           fit: BoxFit.cover,
+          cacheWidth: cacheSize,
+          cacheHeight: cacheSize,
           errorBuilder: (_, __, ___) => _fallback(context, borderRadius),
         ),
       );

@@ -21,6 +21,10 @@ class Playlists extends Table {
 /// ker `on_audio_query`-jevi MediaStore ID-ji niso stabilna trajna referenca
 /// (album/artist se lahko spremenijo ob ponovnem indeksiranju naprave) -
 /// playlista mora ostati uporabna tudi če se knjižnica spremeni.
+@TableIndex(
+  name: 'playlist_songs_playlist_position',
+  columns: {#playlistId, #position},
+)
 class PlaylistSongs extends Table {
   IntColumn get id => integer().autoIncrement()();
   IntColumn get playlistId =>
@@ -76,7 +80,7 @@ class AppDatabase extends _$AppDatabase {
   AppDatabase.forTesting(super.connection);
 
   @override
-  int get schemaVersion => 3;
+  int get schemaVersion => 4;
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
@@ -87,6 +91,12 @@ class AppDatabase extends _$AppDatabase {
       }
       if (from < 3) {
         await m.createTable(groupArtworks);
+      }
+      if (from < 4) {
+        await customStatement(
+          'CREATE INDEX playlist_songs_playlist_position '
+          'ON playlist_songs (playlist_id, position)',
+        );
       }
     },
   );
@@ -122,17 +132,22 @@ class AppDatabase extends _$AppDatabase {
 
   /// Doda pesem na konec playliste.
   Future<void> addSongToPlaylist(int playlistId, Song song) async {
-    final currentCount =
-        await (selectOnly(playlistSongs)
-              ..addColumns([playlistSongs.id.count()])
-              ..where(playlistSongs.playlistId.equals(playlistId)))
-            .map((row) => row.read(playlistSongs.id.count()) ?? 0)
-            .getSingle();
+    final lastSong =
+        await (select(playlistSongs)
+              ..where((song) => song.playlistId.equals(playlistId))
+              ..orderBy([
+                (song) => OrderingTerm(
+                  expression: song.position,
+                  mode: OrderingMode.desc,
+                ),
+              ])
+              ..limit(1))
+            .getSingleOrNull();
 
     await into(playlistSongs).insert(
       PlaylistSongsCompanion.insert(
         playlistId: playlistId,
-        position: currentCount,
+        position: (lastSong?.position ?? -1) + 1,
         songId: song.id,
         title: song.title,
         artist: song.artist,

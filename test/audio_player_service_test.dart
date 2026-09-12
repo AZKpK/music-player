@@ -190,6 +190,21 @@ void main() {
       },
     );
 
+    test('keeps only the bounded sample for a large library', () {
+      final songs = [for (var i = 0; i < 10 * 1000; i++) _song('$i')];
+
+      final result = buildShuffledQueueWindow(
+        songs,
+        5000,
+        maxLength: 250,
+        random: Random(42),
+      );
+
+      expect(result, hasLength(250));
+      expect(result.first.id, '5000');
+      expect(result.map((song) => song.id).toSet(), hasLength(250));
+    });
+
     test('does not add songs when the selected song is the only one', () {
       final songs = [_song('a')];
 

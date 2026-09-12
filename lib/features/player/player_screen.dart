@@ -71,14 +71,11 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen> {
     final mediaItem = ref.watch(currentMediaItemProvider).valueOrNull;
     final playbackState = ref.watch(playbackStateProvider).valueOrNull;
     final currentSong = ref.watch(currentSongProvider);
-    final position =
-        ref.watch(playbackPositionProvider).valueOrNull ?? Duration.zero;
     final duration = mediaItem?.duration;
 
     final playing = playbackState?.playing ?? false;
     final shuffleOn = playbackState?.shuffleMode == AudioServiceShuffleMode.all;
     final repeatMode = playbackState?.repeatMode ?? AudioServiceRepeatMode.none;
-    final sleepRemaining = ref.watch(sleepTimerProvider);
     final speed = playbackState?.speed ?? 1.0;
     final displayedLiked =
         currentSong != null && _locallyUpdatedLikeSongId == currentSong.id
@@ -107,19 +104,7 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen> {
               ),
             ),
           ),
-          IconButton(
-            icon: Icon(
-              sleepRemaining != null ? Icons.bedtime : Icons.bedtime_outlined,
-              color: sleepRemaining != null
-                  ? Theme.of(context).colorScheme.primary
-                  : null,
-            ),
-            tooltip: sleepRemaining != null
-                ? 'Sleep timer: ${_formatDuration(sleepRemaining)}'
-                : 'Sleep timer',
-            onPressed: () =>
-                _showSleepTimerDialog(context, ref, sleepRemaining),
-          ),
+          const _SleepTimerButton(),
           IconButton(
             icon: const Icon(Icons.queue_music),
             tooltip: 'Vrsta predvajanja',
@@ -196,11 +181,7 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen> {
             ],
           ),
           const SizedBox(height: 16),
-          _SeekBar(
-            position: position,
-            duration: duration,
-            onSeek: handler.seek,
-          ),
+          _SeekBar(duration: duration, onSeek: handler.seek),
           Row(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
@@ -226,9 +207,14 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen> {
                 tooltip: '-5s',
                 onPressed: duration == null || duration <= Duration.zero
                     ? null
-                    : () => handler.seek(
-                        _clampSeek(position - _seekStep, duration),
-                      ),
+                    : () {
+                        final position =
+                            ref.read(playbackPositionProvider).valueOrNull ??
+                            Duration.zero;
+                        handler.seek(
+                          _clampSeek(position - _seekStep, duration),
+                        );
+                      },
               ),
               IconButton(
                 iconSize: 48,
@@ -240,9 +226,14 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen> {
                 tooltip: '+5s',
                 onPressed: duration == null || duration <= Duration.zero
                     ? null
-                    : () => handler.seek(
-                        _clampSeek(position + _seekStep, duration),
-                      ),
+                    : () {
+                        final position =
+                            ref.read(playbackPositionProvider).valueOrNull ??
+                            Duration.zero;
+                        handler.seek(
+                          _clampSeek(position + _seekStep, duration),
+                        );
+                      },
               ),
               IconButton(
                 icon: const Icon(Icons.skip_next),
@@ -304,30 +295,46 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen> {
 /// Slider z oznakama trenutne pozicije/trajanja. Med vlečenjem prikazuje
 /// lokalno "draft" vrednost (da se slider ne trza nazaj zaradi tikajočega
 /// `position` stream-a), `onSeek` pa pokliče šele ob spustu.
-class _SeekBar extends StatefulWidget {
-  const _SeekBar({
-    required this.position,
-    required this.duration,
-    required this.onSeek,
-  });
+class _SleepTimerButton extends ConsumerWidget {
+  const _SleepTimerButton();
 
-  final Duration position;
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final remaining = ref.watch(sleepTimerProvider);
+    return IconButton(
+      icon: Icon(
+        remaining != null ? Icons.bedtime : Icons.bedtime_outlined,
+        color: remaining != null ? Theme.of(context).colorScheme.primary : null,
+      ),
+      tooltip: remaining != null
+          ? 'Sleep timer: ${_formatDuration(remaining)}'
+          : 'Sleep timer',
+      onPressed: () => _showSleepTimerDialog(context, ref, remaining),
+    );
+  }
+}
+
+class _SeekBar extends ConsumerStatefulWidget {
+  const _SeekBar({required this.duration, required this.onSeek});
+
   final Duration? duration;
   final ValueChanged<Duration> onSeek;
 
   @override
-  State<_SeekBar> createState() => _SeekBarState();
+  ConsumerState<_SeekBar> createState() => _SeekBarState();
 }
 
-class _SeekBarState extends State<_SeekBar> {
+class _SeekBarState extends ConsumerState<_SeekBar> {
   double? _dragValue;
 
   @override
   Widget build(BuildContext context) {
+    final position =
+        ref.watch(playbackPositionProvider).valueOrNull ?? Duration.zero;
     final duration = widget.duration;
     final durationKnown = duration != null && duration > Duration.zero;
     final maxMs = duration?.inMilliseconds.toDouble() ?? 0;
-    final currentMs = widget.position.inMilliseconds.toDouble().clamp(
+    final currentMs = position.inMilliseconds.toDouble().clamp(
       0.0,
       maxMs <= 0 ? 0.0 : maxMs,
     );

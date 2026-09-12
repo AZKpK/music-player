@@ -1698,6 +1698,10 @@ abstract class _$AppDatabase extends GeneratedDatabase {
   late final $PlaylistSongsTable playlistSongs = $PlaylistSongsTable(this);
   late final $SongOverridesTable songOverrides = $SongOverridesTable(this);
   late final $GroupArtworksTable groupArtworks = $GroupArtworksTable(this);
+  late final Index playlistSongsPlaylistPosition = Index(
+    'playlist_songs_playlist_position',
+    'CREATE INDEX playlist_songs_playlist_position ON playlist_songs (playlist_id, position)',
+  );
   @override
   Iterable<TableInfo<Table, Object?>> get allTables =>
       allSchemaEntities.whereType<TableInfo<Table, Object?>>();
@@ -1707,6 +1711,7 @@ abstract class _$AppDatabase extends GeneratedDatabase {
     playlistSongs,
     songOverrides,
     groupArtworks,
+    playlistSongsPlaylistPosition,
   ];
   @override
   StreamQueryUpdateRules get streamUpdateRules => const StreamQueryUpdateRules([

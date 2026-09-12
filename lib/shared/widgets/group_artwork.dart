@@ -33,6 +33,7 @@ class GroupArtwork extends ConsumerWidget {
     final artworks = ref.watch(groupArtworksProvider).valueOrNull;
     final artwork = artworks?[GroupArtworkKey(groupType, groupKey)];
     if (artwork != null) {
+      final cacheSize = (size * MediaQuery.devicePixelRatioOf(context)).round();
       return ClipRRect(
         borderRadius: BorderRadius.circular(6),
         child: Image.file(
@@ -40,6 +41,8 @@ class GroupArtwork extends ConsumerWidget {
           width: size,
           height: size,
           fit: BoxFit.cover,
+          cacheWidth: cacheSize,
+          cacheHeight: cacheSize,
           errorBuilder: (_, __, ___) => _songArtwork(),
         ),
       );

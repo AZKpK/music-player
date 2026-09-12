@@ -12,19 +12,6 @@ import '../../shared/widgets/song_artwork.dart';
 import '../library/song_actions.dart';
 import '../player/player_screen.dart';
 
-/// Seznam uporabniških playlist (CRUD: ustvari/preimenuj/izbriši).
-class PlaylistsScreen extends ConsumerWidget {
-  const PlaylistsScreen({super.key});
-
-  @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    return Scaffold(
-      appBar: AppBar(title: const Text('Playliste')),
-      body: const PlaylistsTab(),
-    );
-  }
-}
-
 /// Zavihek s playlistami v knjižnici. "Priljubljene pesmi" je sistemska
 /// playlista in je zato vedno prvi element, pred uporabniškimi playlistami.
 class PlaylistsTab extends ConsumerWidget {

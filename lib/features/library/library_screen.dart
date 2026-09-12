@@ -27,26 +27,37 @@ class LibraryScreen extends ConsumerStatefulWidget {
 }
 
 class _LibraryScreenState extends ConsumerState<LibraryScreen> {
+  static const _searchDebounce = Duration(milliseconds: 250);
+
   bool _searching = false;
   final _searchController = TextEditingController();
+  Timer? _searchTimer;
 
   @override
   void dispose() {
+    _searchTimer?.cancel();
     _searchController.dispose();
     super.dispose();
   }
 
   void _stopSearching() {
+    _searchTimer?.cancel();
     _searchController.clear();
     ref.read(librarySearchQueryProvider.notifier).state = '';
     setState(() => _searching = false);
   }
 
+  void _onSearchChanged(String value) {
+    _searchTimer?.cancel();
+    _searchTimer = Timer(_searchDebounce, () {
+      if (!mounted) return;
+      ref.read(librarySearchQueryProvider.notifier).state = value;
+    });
+  }
+
   @override
   Widget build(BuildContext context) {
     final songsAsync = ref.watch(librarySongsProvider);
-    final displayedSongs =
-        ref.watch(displayedLibrarySongsProvider).valueOrNull ?? const <Song>[];
 
     return DefaultTabController(
       length: 4,
@@ -60,9 +71,7 @@ class _LibraryScreenState extends ConsumerState<LibraryScreen> {
                     hintText: 'Išči po naslovu/izvajalcu/albumu...',
                     border: InputBorder.none,
                   ),
-                  onChanged: (value) =>
-                      ref.read(librarySearchQueryProvider.notifier).state =
-                          value,
+                  onChanged: _onSearchChanged,
                 )
               : const Text('Knjižnica'),
           actions: [
@@ -107,13 +116,7 @@ class _LibraryScreenState extends ConsumerState<LibraryScreen> {
                   ),
                 ],
               ),
-              IconButton(
-                icon: const Icon(Icons.play_arrow),
-                tooltip: 'Predvajaj',
-                onPressed: displayedSongs.isEmpty
-                    ? null
-                    : () => _showPlayOptions(context, displayedSongs),
-              ),
+              const _PlayLibraryButton(),
               // Folder-scan ostaja kot alternativa: koristen za datoteke, ki jih
               // MediaStore še ni indeksiral (npr. ravnokar prekopirane preko adb).
               IconButton(
@@ -155,36 +158,59 @@ class _LibraryScreenState extends ConsumerState<LibraryScreen> {
       ),
     );
   }
+}
 
-  Future<void> _showPlayOptions(BuildContext context, List<Song> songs) async {
-    await showDialog<void>(
-      context: context,
-      builder: (dialogContext) => AlertDialog(
-        title: const Text('Predvajaj'),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            ListTile(
-              leading: const Icon(Icons.play_arrow),
-              title: const Text('Po vrstnem redu'),
-              onTap: () {
-                Navigator.of(dialogContext).pop();
-                _playAll(context, ref, songs, shuffle: false);
-              },
-            ),
-            ListTile(
-              leading: const Icon(Icons.shuffle),
-              title: const Text('Naključno predvajaj'),
-              onTap: () {
-                Navigator.of(dialogContext).pop();
-                _playAll(context, ref, songs, shuffle: true);
-              },
-            ),
-          ],
-        ),
-      ),
+/// Samo gumb za predvajanje opazuje filtriran/sortiran seznam. Tako sprememba
+/// iskanja ne prezgradi celotnega `DefaultTabController` in vseh zavihkov.
+class _PlayLibraryButton extends ConsumerWidget {
+  const _PlayLibraryButton();
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final songs =
+        ref.watch(displayedLibrarySongsProvider).valueOrNull ?? const <Song>[];
+    return IconButton(
+      icon: const Icon(Icons.play_arrow),
+      tooltip: 'Predvajaj',
+      onPressed: songs.isEmpty
+          ? null
+          : () => _showPlayOptions(context, ref, songs),
     );
   }
+}
+
+Future<void> _showPlayOptions(
+  BuildContext context,
+  WidgetRef ref,
+  List<Song> songs,
+) {
+  return showDialog<void>(
+    context: context,
+    builder: (dialogContext) => AlertDialog(
+      title: const Text('Predvajaj'),
+      content: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          ListTile(
+            leading: const Icon(Icons.play_arrow),
+            title: const Text('Po vrstnem redu'),
+            onTap: () {
+              Navigator.of(dialogContext).pop();
+              _playAll(context, ref, songs, shuffle: false);
+            },
+          ),
+          ListTile(
+            leading: const Icon(Icons.shuffle),
+            title: const Text('Naključno predvajaj'),
+            onTap: () {
+              Navigator.of(dialogContext).pop();
+              _playAll(context, ref, songs, shuffle: true);
+            },
+          ),
+        ],
+      ),
+    ),
+  );
 }
 
 class _ErrorView extends StatelessWidget {

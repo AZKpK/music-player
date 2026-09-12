@@ -1,5 +1,6 @@
 import 'dart:async';
 
+import 'package:flutter/widgets.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'audio_player_providers.dart';
@@ -8,49 +9,83 @@ import 'audio_player_providers.dart';
 /// času (glej `player_screen.dart`, bedtime ikona + izbirni dialog). Stanje
 /// je preostali čas do pavze (`null` če timer ni aktiven), da lahko UI
 /// prikaže odštevanje.
-class SleepTimerController extends StateNotifier<Duration?> {
-  SleepTimerController(this._ref) : super(null);
+class SleepTimerController extends StateNotifier<Duration?>
+    with WidgetsBindingObserver {
+  SleepTimerController(this._ref) : super(null) {
+    WidgetsBinding.instance.addObserver(this);
+  }
 
   final Ref _ref;
-  Timer? _timer;
+  Timer? _pauseTimer;
+  Timer? _displayTimer;
   DateTime? _endTime;
 
-  /// Zažene (ali zamenja obstoječi) timer za `duration`. Interno tika vsako
-  /// sekundo namesto enkratnega `Timer(duration, ...)`, da lahko `state`
-  /// sproti prikazuje preostali čas.
+  /// Za dejansko pavzo uporabi en sam timer. Sekundni timer obstaja samo za
+  /// prikaz odštevanja v ospredju in se ustavi, ko aplikacija ni aktivna.
   void start(Duration duration) {
-    _timer?.cancel();
+    cancel();
     _endTime = DateTime.now().add(duration);
     state = duration;
-    _timer = Timer.periodic(const Duration(seconds: 1), (_) => _tick());
+    _pauseTimer = Timer(duration, _complete);
+    _startDisplayTimer();
   }
 
   /// Prekliče aktiven timer brez pavze predvajanja.
   void cancel() {
-    _timer?.cancel();
-    _timer = null;
+    _pauseTimer?.cancel();
+    _displayTimer?.cancel();
+    _pauseTimer = null;
+    _displayTimer = null;
     _endTime = null;
     state = null;
   }
 
-  void _tick() {
+  void _startDisplayTimer() {
+    if (_displayTimer != null || _endTime == null) return;
+    _displayTimer = Timer.periodic(
+      const Duration(seconds: 1),
+      (_) => _updateDisplay(),
+    );
+  }
+
+  void _updateDisplay() {
     final endTime = _endTime;
     if (endTime == null) return;
     final remaining = endTime.difference(DateTime.now());
     if (remaining <= Duration.zero) {
-      _timer?.cancel();
-      _timer = null;
-      _endTime = null;
-      state = null;
-      _ref.read(audioHandlerProvider).pause();
+      _complete();
     } else {
       state = remaining;
     }
   }
 
+  void _complete() {
+    _pauseTimer?.cancel();
+    _displayTimer?.cancel();
+    _pauseTimer = null;
+    _displayTimer = null;
+    _endTime = null;
+    state = null;
+    _ref.read(audioHandlerProvider).pause();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (_endTime == null) return;
+    if (state == AppLifecycleState.resumed) {
+      _updateDisplay();
+      _startDisplayTimer();
+    } else {
+      _displayTimer?.cancel();
+      _displayTimer = null;
+    }
+  }
+
   @override
   void dispose() {
-    _timer?.cancel();
+    WidgetsBinding.instance.removeObserver(this);
+    _pauseTimer?.cancel();
+    _displayTimer?.cancel();
     super.dispose();
   }
 }

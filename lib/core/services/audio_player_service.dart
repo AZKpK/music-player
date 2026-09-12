@@ -65,9 +65,28 @@ List<Song> buildShuffledQueueWindow(
     return const [];
   }
 
-  final others = List<Song>.of(songs)..removeAt(startIndex);
-  others.shuffle(random);
-  return [songs[startIndex], ...others.take(maxLength - 1)];
+  final sampleSize = min(maxLength - 1, songs.length - 1);
+  if (sampleSize == 0) return [songs[startIndex]];
+
+  // Reservoir sampling ohrani največ `sampleSize` dodatnih pesmi v pomnilniku.
+  // Prej smo kopirali in premešali celotno knjižnico samo zato, da smo od nje
+  // obdržali največ 249 pesmi v predvajalnem oknu.
+  final rng = random ?? Random();
+  final sample = <Song>[];
+  var seenCandidates = 0;
+  for (var index = 0; index < songs.length; index++) {
+    if (index == startIndex) continue;
+    final song = songs[index];
+    seenCandidates++;
+    if (sample.length < sampleSize) {
+      sample.add(song);
+      continue;
+    }
+    final replacementIndex = rng.nextInt(seenCandidates);
+    if (replacementIndex < sampleSize) sample[replacementIndex] = song;
+  }
+  sample.shuffle(rng);
+  return [songs[startIndex], ...sample];
 }
 
 /// Vrne kopijo queue-a, v kateri ima vnos z [queueItemId] znano [duration].
