@@ -37,6 +37,14 @@ android {
             signingConfig = signingConfigs.getByName("debug")
         }
     }
+
+    // Google Play delivers ABI-specific APKs from an App Bundle. Flutter
+    // configures ABI filters itself, so manual `splits` would conflict here.
+    bundle {
+        abi {
+            enableSplit = true
+        }
+    }
 }
 
 flutter {
