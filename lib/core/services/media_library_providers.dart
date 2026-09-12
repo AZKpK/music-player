@@ -43,7 +43,11 @@ final pendingSongLikesProvider = StateProvider<Map<String, bool>>((ref) => {});
 /// Če zapis v bazo ne uspe, lokalno spremembo odstrani, da UI ne ostane v
 /// stanju, ki ni shranjeno.
 final songLikesControllerProvider = Provider<SongLikesController>((ref) {
-  return SongLikesController(ref);
+  final controller = SongLikesController(ref);
+  ref.listen(songOverridesProvider, (_, next) {
+    controller.confirmPersistedLikes(next.valueOrNull);
+  });
+  return controller;
 });
 
 class SongLikesController {
@@ -70,6 +74,21 @@ class SongLikesController {
       _ref.read(pendingSongLikesProvider.notifier).state = restored;
       rethrow;
     }
+  }
+
+  /// Ko Drift potrdi zapis, optimističnega vnosa ne potrebujemo več. Brez
+  /// tega bi se zemljevid večal ob vsakem všečku skozi celotno app sejo.
+  void confirmPersistedLikes(Map<String, SongOverride>? overrides) {
+    if (overrides == null) return;
+    final pending = _ref.read(pendingSongLikesProvider);
+    if (pending.isEmpty) return;
+
+    final remaining = <String, bool>{
+      for (final entry in pending.entries)
+        if (overrides[entry.key]?.liked != entry.value) entry.key: entry.value,
+    };
+    if (remaining.length == pending.length) return;
+    _ref.read(pendingSongLikesProvider.notifier).state = remaining;
   }
 }
 
@@ -177,14 +196,7 @@ final filteredLibrarySongsProvider = Provider<AsyncValue<List<Song>>>((ref) {
 List<Song> filterLibrarySongs(List<Song> songs, String query) {
   final trimmed = query.trim().toLowerCase();
   if (trimmed.isEmpty) return songs;
-  return songs
-      .where(
-        (song) =>
-            song.title.toLowerCase().contains(trimmed) ||
-            song.artist.toLowerCase().contains(trimmed) ||
-            song.album.toLowerCase().contains(trimmed),
-      )
-      .toList();
+  return songs.where((song) => song.matchesLibraryQuery(trimmed)).toList();
 }
 
 /// Filtrira imena skupin (izvajalcev ali albumov) za isto iskalno polje kot
@@ -230,17 +242,11 @@ List<Song> sortLibrarySongs(List<Song> songs, SongSortOption option) {
   // vse male - npr. "boy" bi pristal za vsemi "B..." naslovi namesto zraven).
   switch (option) {
     case SongSortOption.title:
-      sorted.sort(
-        (a, b) => a.title.toLowerCase().compareTo(b.title.toLowerCase()),
-      );
+      sorted.sort((a, b) => a.normalizedTitle.compareTo(b.normalizedTitle));
     case SongSortOption.artist:
-      sorted.sort(
-        (a, b) => a.artist.toLowerCase().compareTo(b.artist.toLowerCase()),
-      );
+      sorted.sort((a, b) => a.normalizedArtist.compareTo(b.normalizedArtist));
     case SongSortOption.album:
-      sorted.sort(
-        (a, b) => a.album.toLowerCase().compareTo(b.album.toLowerCase()),
-      );
+      sorted.sort((a, b) => a.normalizedAlbum.compareTo(b.normalizedAlbum));
     case SongSortOption.dateAddedDesc:
       sorted.sort((a, b) {
         final dateA = a.dateAdded;

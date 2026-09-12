@@ -296,7 +296,7 @@ class AudioPlayerHandler extends BaseAudioHandler
   Future<void> addToQueue(Song song) async {
     final entry = QueueEntry(song, _nextQueueItemId++);
     _sourceOrder = [..._sourceOrder, entry];
-    queue.add([...queue.value, await _resolveMediaItem(entry)]);
+    queue.add([...queue.value, _songToMediaItem(entry)]);
     await _playlist.add(_songToAudioSource(entry));
   }
 
@@ -310,7 +310,7 @@ class AudioPlayerHandler extends BaseAudioHandler
     final entry = QueueEntry(song, _nextQueueItemId++);
     final insertIndex = (_player.currentIndex ?? 0) + 1;
     final updatedQueue = [...queue.value]
-      ..insert(insertIndex, await _resolveMediaItem(entry));
+      ..insert(insertIndex, _songToMediaItem(entry));
     queue.add(updatedQueue);
     await _playlist.insert(insertIndex, _songToAudioSource(entry));
 
@@ -319,6 +319,9 @@ class AudioPlayerHandler extends BaseAudioHandler
         ? _sourceOrder.length
         : currentSourceIndex + 1;
     _sourceOrder = [..._sourceOrder]..insert(sourceInsertIndex, entry);
+    // Artwork je lahko počasna MediaStore/disk operacija. Queue objavimo
+    // takoj, naslovnico za novo "naslednjo" pesem pa dopolnimo v ozadju.
+    unawaited(_resolveArtworkAround(insertIndex));
   }
 
   /// Počisti queue in obdrži samo trenutno predvajano pesem (če obstaja).
@@ -699,18 +702,6 @@ class AudioPlayerHandler extends BaseAudioHandler
     artUri: entry.song.artUri,
     extras: {queueItemIdExtraKey: entry.queueItemId},
   );
-
-  /// Kot [_songToMediaItem], a doda `artUri` iz MediaStore artworka, če
-  /// `song.artUri` še ni nastavljen (ročna naslovnica iz "Uredi metapodatke"
-  /// ima prednost - glej `applyOverride()` v `media_library_providers.dart`).
-  /// Uporabljeno pri nalaganju v queue, da notifikacija/lock-screen in
-  /// `PlayerScreen` dobita pravo albumsko naslovnico brez ročnega urejanja.
-  Future<MediaItem> _resolveMediaItem(QueueEntry entry) async {
-    final artUri =
-        entry.song.artUri ??
-        await _libraryService.resolveArtwork(entry.song.id);
-    return _songToMediaItem(entry).copyWith(artUri: artUri);
-  }
 
   AudioSource _songToAudioSource(QueueEntry entry) => AudioSource.uri(
     Uri.file(entry.song.filePath),

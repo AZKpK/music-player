@@ -41,6 +41,22 @@ class Song {
   final int? trackNumber;
   final bool liked;
 
+  /// Normalizirana polja za pogosto iskanje in sortiranje. Ker je [Song]
+  /// nespremenljiv, jih Expando izračuna največ enkrat na instanco namesto ob
+  /// vsaki primerjavi med filtriranjem/sortiranjem velike knjižnice. Expando
+  /// ohrani tudi `const Song` konstruktor, ki ga uporabljajo testi in UI.
+  _SongSearchFields get _searchFields =>
+      _songSearchFields[this] ??= _SongSearchFields(this);
+
+  String get normalizedTitle => _searchFields.title;
+  String get normalizedArtist => _searchFields.artist;
+  String get normalizedAlbum => _searchFields.album;
+
+  bool matchesLibraryQuery(String normalizedQuery) =>
+      normalizedTitle.contains(normalizedQuery) ||
+      normalizedArtist.contains(normalizedQuery) ||
+      normalizedAlbum.contains(normalizedQuery);
+
   Song copyWith({
     String? title,
     String? artist,
@@ -74,4 +90,17 @@ class Song {
 
   @override
   int get hashCode => id.hashCode;
+}
+
+final Expando<_SongSearchFields> _songSearchFields = Expando();
+
+class _SongSearchFields {
+  _SongSearchFields(Song song)
+    : title = song.title.toLowerCase(),
+      artist = song.artist.toLowerCase(),
+      album = song.album.toLowerCase();
+
+  final String title;
+  final String artist;
+  final String album;
 }
