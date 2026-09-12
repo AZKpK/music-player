@@ -48,6 +48,28 @@ List<Song> buildQueueWindow(
   return [for (var i = 0; i < windowLength; i++) songs[startIndex + i]];
 }
 
+/// Zgradi naključno queue okno: izbrana pesem vedno ostane prva, preostanek
+/// pa je naključni vzorec iz celotnega seznama (in ne le iz pesmi za njo).
+/// To ohrani omejitev [kMaxQueueLength], ne da bi shuffle pri veliki
+/// knjižnici favoriziral naslove blizu izbrane pesmi v trenutnem sortiranju.
+List<Song> buildShuffledQueueWindow(
+  List<Song> songs,
+  int startIndex, {
+  int maxLength = kMaxQueueLength,
+  Random? random,
+}) {
+  if (maxLength <= 0 ||
+      songs.isEmpty ||
+      startIndex < 0 ||
+      startIndex >= songs.length) {
+    return const [];
+  }
+
+  final others = List<Song>.of(songs)..removeAt(startIndex);
+  others.shuffle(random);
+  return [songs[startIndex], ...others.take(maxLength - 1)];
+}
+
 /// Vrne kopijo queue-a, v kateri ima vnos z [queueItemId] znano [duration].
 ///
 /// `Song.id` za to ni primeren ključ, ker se lahko ista pesem v queue-u
@@ -196,6 +218,11 @@ class AudioPlayerHandler extends BaseAudioHandler
   /// Vir resnice za [buildPlayOrder], ko se shuffle vklopi/izklopi.
   List<QueueEntry> _sourceOrder = [];
 
+  /// Celoten seznam, iz katerega je bil naložen trenutni queue. Dejanska
+  /// vrsta ima lahko največ [kMaxQueueLength] vnosov, vendar ga potrebujemo,
+  /// če uporabnik shuffle vklopi šele po kliku na pesem.
+  List<Song> _loadedQueueSongs = [];
+
   int _nextQueueItemId = 0;
 
   /// Trenutni repeat mode (none / one / all).
@@ -222,7 +249,10 @@ class AudioPlayerHandler extends BaseAudioHandler
   /// naslednjo pesem pa se razreši asinhrono v ozadju (glej
   /// [_resolveArtworkAround]).
   Future<void> loadQueue(List<Song> songs, {int initialIndex = 0}) async {
-    final windowed = buildQueueWindow(songs, initialIndex);
+    _loadedQueueSongs = List.of(songs);
+    final windowed = shuffleEnabled
+        ? buildShuffledQueueWindow(songs, initialIndex)
+        : buildQueueWindow(songs, initialIndex);
     final entries = [
       for (final song in windowed) QueueEntry(song, _nextQueueItemId++),
     ];
@@ -364,9 +394,49 @@ class AudioPlayerHandler extends BaseAudioHandler
 
   @override
   Future<void> setShuffleMode(AudioServiceShuffleMode shuffleMode) async {
+    final enablingShuffle =
+        !shuffleEnabled && shuffleMode != AudioServiceShuffleMode.none;
     _shuffleMode = shuffleMode;
-    await _applyShuffleState(current: _currentQueueEntry());
+    if (enablingShuffle &&
+        _loadedQueueSongs.length > kMaxQueueLength &&
+        _sourceOrder.length <= kMaxQueueLength) {
+      await _replaceQueueWithShuffledWindow(_currentQueueEntry());
+    } else {
+      await _applyShuffleState(current: _currentQueueEntry());
+    }
     _broadcastState(_player.playbackEvent);
+  }
+
+  /// Zamenja omejeno zaporedno okno z naključnim oknom iz celotnega vira.
+  /// Trenutni [current] vnos obdrži identiteto, zato ostane predvajan prvi
+  /// tudi kadar je v izvoru več enakih skladb.
+  Future<void> _replaceQueueWithShuffledWindow(QueueEntry? current) async {
+    if (current == null) return;
+    final sourceIndex = _loadedQueueSongs.indexWhere(
+      (song) => identical(song, current.song),
+    );
+    if (sourceIndex == -1) return;
+
+    final songs = buildShuffledQueueWindow(_loadedQueueSongs, sourceIndex);
+    final entries = [
+      current,
+      for (final song in songs.skip(1)) QueueEntry(song, _nextQueueItemId++),
+    ];
+    final wasPlaying = _player.playing;
+    final position = _player.position;
+
+    _sourceOrder = List.of(entries);
+    queue.add(entries.map(_songToMediaItem).toList());
+    mediaItem.add(queue.value.first);
+    await _playlist.clear();
+    await _playlist.addAll(entries.map(_songToAudioSource).toList());
+    await _player.setAudioSource(
+      _playlist,
+      initialIndex: 0,
+      initialPosition: position,
+    );
+    if (wasPlaying) unawaited(_player.play());
+    unawaited(_resolveArtworkAround(0));
   }
 
   /// Poišče trenutno predvajano [QueueEntry] (prek `_player.currentIndex` +

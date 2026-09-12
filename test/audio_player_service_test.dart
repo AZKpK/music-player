@@ -170,6 +170,35 @@ void main() {
     });
   });
 
+  group('buildShuffledQueueWindow', () {
+    test(
+      'keeps the selected song first and samples beyond the next window',
+      () {
+        final songs = [for (var i = 0; i < 300; i++) _song('$i')];
+
+        final result = buildShuffledQueueWindow(
+          songs,
+          0,
+          maxLength: 250,
+          random: Random(42),
+        );
+
+        expect(result, hasLength(250));
+        expect(result.first.id, '0');
+        expect(result.map((song) => song.id).toSet(), hasLength(250));
+        expect(result.skip(1).any((song) => int.parse(song.id) >= 250), isTrue);
+      },
+    );
+
+    test('does not add songs when the selected song is the only one', () {
+      final songs = [_song('a')];
+
+      expect(buildShuffledQueueWindow(songs, 0, random: Random(1)), [
+        songs.first,
+      ]);
+    });
+  });
+
   group('duplicate queue entries', () {
     test('same song added twice gets distinct queueItemIds', () {
       final song = _song('a');
