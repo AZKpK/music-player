@@ -20,8 +20,7 @@ Song _song(String id) => Song(
 
 void main() {
   group('buildPlayOrder - shuffle off', () {
-    test('current song stays first, followed by source order after it, '
-        'wrapping to before it', () {
+    test('restores the exact source order while keeping the current entry', () {
       final source = [
         QueueEntry(_song('a'), 0),
         QueueEntry(_song('b'), 1),
@@ -37,7 +36,7 @@ void main() {
         shuffled: false,
       );
 
-      expect(result.map((e) => e.song.id).toList(), ['c', 'd', 'e', 'a', 'b']);
+      expect(result.map((e) => e.song.id).toList(), ['a', 'b', 'c', 'd', 'e']);
     });
 
     test('current song already first is a no-op reordering', () {
@@ -167,6 +166,40 @@ void main() {
       final result = buildQueueWindow(songs, 4, maxLength: 4);
 
       expect(result.map((s) => s.id).toList(), ['e']);
+    });
+  });
+
+  group('buildInitialQueue', () {
+    test('keeps a short album intact and starts at the selected song', () {
+      final songs = [
+        _song('a'),
+        _song('b'),
+        _song('c'),
+        _song('d'),
+        _song('e'),
+      ];
+
+      final result = buildInitialQueue(songs: songs, startIndex: 3);
+
+      expect(result.songs.map((song) => song.id).toList(), [
+        'a',
+        'b',
+        'c',
+        'd',
+        'e',
+      ]);
+      expect(result.initialIndex, 3);
+    });
+
+    test('uses a bounded window for a large library', () {
+      final songs = [for (var i = 0; i < 300; i++) _song('$i')];
+
+      final result = buildInitialQueue(songs: songs, startIndex: 275);
+
+      expect(result.songs, hasLength(25));
+      expect(result.songs.first.id, '275');
+      expect(result.songs.last.id, '299');
+      expect(result.initialIndex, 0);
     });
   });
 

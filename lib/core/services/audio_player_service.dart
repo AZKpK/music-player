@@ -48,6 +48,30 @@ List<Song> buildQueueWindow(
   return [for (var i = 0; i < windowLength; i++) songs[startIndex + i]];
 }
 
+/// Za običajno predvajanje pripravi začetni queue in indeks izbrane pesmi.
+///
+/// Kratki seznami (albumi in običajne playliste) ostanejo celi, zato klik na
+/// četrto pesem pet-skladbnega albuma v vrsto postavi vseh pet skladb in
+/// začne predvajati pri indeksu 3. Pri zelo velikih seznamih ohranimo omejeno
+/// okno od izbrane pesmi naprej, da nalaganje več tisoč virov ne zadrži
+/// začetka predvajanja.
+({List<Song> songs, int initialIndex}) buildInitialQueue({
+  required List<Song> songs,
+  required int startIndex,
+  int maxLength = kMaxQueueLength,
+}) {
+  if (songs.isEmpty || startIndex < 0 || startIndex >= songs.length) {
+    return (songs: const [], initialIndex: 0);
+  }
+  if (songs.length <= maxLength) {
+    return (songs: List.of(songs), initialIndex: startIndex);
+  }
+  return (
+    songs: buildQueueWindow(songs, startIndex, maxLength: maxLength),
+    initialIndex: 0,
+  );
+}
+
 /// Zgradi naključno queue okno: izbrana pesem vedno ostane prva, preostanek
 /// pa je naključni vzorec iz celotnega seznama (in ne le iz pesmi za njo).
 /// To ohrani omejitev [kMaxQueueLength], ne da bi shuffle pri veliki
@@ -109,12 +133,13 @@ List<MediaItem> updateQueueItemDuration(
   return updated;
 }
 
-/// Zgradi nov play order, kjer trenutna pesem ostane prva:
+/// Zgradi nov play order za preklop shuffle-a:
 ///
 /// - shuffle vklopljen: trenutna pesem + preostale pesmi iz `sourceOrder`,
 ///   naključno premešane;
-/// - shuffle izklopljen: trenutna pesem + preostale pesmi v `sourceOrder`,
-///   začenši takoj za trenutno pesmijo in zavijoč nazaj na začetek.
+/// - shuffle izklopljen: natančen kanoničen vrstni red `sourceOrder`, tako da
+///   queue spet ustreza vrstnemu redu albuma oziroma playliste. Trenutna
+///   pesem ostane ista, le njen indeks v queue-u se vrne na pravo mesto.
 ///
 /// Čista funkcija (brez stanja/platform odvisnosti) - namenoma ločena od
 /// `AudioPlayerHandler`, da je shuffle model testabilen v izolaciji (glej
@@ -127,22 +152,12 @@ List<QueueEntry> buildPlayOrder({
   required bool shuffled,
   Random? random,
 }) {
+  if (!shuffled) return List.of(sourceOrder);
+
   final others = sourceOrder
       .where((entry) => entry.queueItemId != current.queueItemId)
       .toList();
-  if (shuffled) {
-    others.shuffle(random);
-  } else {
-    final currentIndex = sourceOrder.indexWhere(
-      (entry) => entry.queueItemId == current.queueItemId,
-    );
-    if (currentIndex != -1) {
-      others
-        ..clear()
-        ..addAll(sourceOrder.skip(currentIndex + 1))
-        ..addAll(sourceOrder.take(currentIndex));
-    }
-  }
+  others.shuffle(random);
   return [current, ...others];
 }
 
@@ -255,42 +270,53 @@ class AudioPlayerHandler extends BaseAudioHandler
   /// `updatePosition` (glej `_broadcastState`).
   AudioServiceShuffleMode _shuffleMode = AudioServiceShuffleMode.none;
 
+  /// Sočasni hitri dotiki shuffle gumba ne smejo hkrati premikati istih
+  /// `AudioSource`-ov. To bi lahko za kratek trenutek zmotilo predvajanje ali
+  /// pustilo UI v drugem vrstnem redu kot player; preklopi se zato obdelajo
+  /// zaporedno.
+  Future<void>? _shuffleModeChange;
+
   /// Ali je shuffle vklopljen.
   bool get shuffleEnabled => _shuffleMode != AudioServiceShuffleMode.none;
 
   /// Nastavi novo vrsto predvajanja (queue) in začne predvajati od `initialIndex`.
   ///
-  /// `songs` je najprej omejen na [buildQueueWindow] (glej `docs/plan1.1.md`
-  /// #18) - pri knjižnicah 3000+ pesmi bi sicer dodajanje vseh naenkrat v
-  /// `_playlist` in razreševanje artworka zanje pomenilo nepotrebno delo
-  /// samo zato, da uporabnik začne predvajati eno pesem. Queue se objavi
-  /// takoj z osnovnimi `MediaItem`-i (brez artworka), artwork za trenutno in
-  /// naslednjo pesem pa se razreši asinhrono v ozadju (glej
+  /// Kratke sezname naloži cele, da je npr. cel album vedno v vrsti tudi če
+  /// uporabnik klikne skladbo na sredini. Pri knjižnicah 3000+ pesmi pa je
+  /// queue še vedno omejen z [buildQueueWindow] (glej `docs/plan1.1.md`
+  /// #18), saj bi dodajanje vseh virov in razreševanje artworka zanje po
+  /// nepotrebnem zadržalo začetek predvajanja. Queue se objavi takoj z
+  /// osnovnimi `MediaItem`-i (brez artworka), artwork za trenutno in naslednjo
+  /// pesem pa se razreši asinhrono v ozadju (glej
   /// [_resolveArtworkAround]).
   Future<void> loadQueue(List<Song> songs, {int initialIndex = 0}) async {
     _loadedQueueSongs = List.of(songs);
+    final initialQueue = buildInitialQueue(
+      songs: songs,
+      startIndex: initialIndex,
+    );
     final windowed = shuffleEnabled
         ? buildShuffledQueueWindow(songs, initialIndex)
-        : buildQueueWindow(songs, initialIndex);
+        : initialQueue.songs;
+    final queueInitialIndex = shuffleEnabled ? 0 : initialQueue.initialIndex;
     final entries = [
       for (final song in windowed) QueueEntry(song, _nextQueueItemId++),
     ];
     _sourceOrder = List.of(entries);
     queue.add(entries.map(_songToMediaItem).toList());
-    // `currentIndexStream` ne odda nove vrednosti, kadar nova vrsta tako kot
-    // prejšnja začne na indeksu 0. Trenutni MediaItem zato objavimo že tu;
-    // sicer lahko PlayerScreen ob kliku na drugo pesem še prikazuje prejšnjo,
-    // čeprav just_audio že predvaja prvo pesem nove vrste.
+    // `currentIndexStream` ne odda nujno nove vrednosti, kadar je indeks nove
+    // vrste enak prejšnjemu. Trenutni MediaItem zato objavimo že tu; sicer
+    // lahko PlayerScreen ob kliku na drugo pesem še prikazuje prejšnjo.
     if (entries.isNotEmpty) {
-      mediaItem.add(queue.value.first);
+      mediaItem.add(queue.value[queueInitialIndex]);
     }
     await _playlist.clear();
     await _playlist.addAll(entries.map(_songToAudioSource).toList());
-    await _player.setAudioSource(_playlist, initialIndex: 0);
+    await _player.setAudioSource(_playlist, initialIndex: queueInitialIndex);
     if (_shuffleMode != AudioServiceShuffleMode.none && entries.isNotEmpty) {
       await _applyShuffleState(current: entries[0]);
     }
-    unawaited(_resolveArtworkAround(0));
+    unawaited(_resolveArtworkAround(queueInitialIndex));
   }
 
   Future<void> addToQueue(Song song) async {
@@ -416,6 +442,21 @@ class AudioPlayerHandler extends BaseAudioHandler
 
   @override
   Future<void> setShuffleMode(AudioServiceShuffleMode shuffleMode) async {
+    while (_shuffleModeChange != null) {
+      await _shuffleModeChange;
+    }
+    if (_shuffleMode == shuffleMode) return;
+
+    final change = _setShuffleMode(shuffleMode);
+    _shuffleModeChange = change;
+    try {
+      await change;
+    } finally {
+      if (identical(_shuffleModeChange, change)) _shuffleModeChange = null;
+    }
+  }
+
+  Future<void> _setShuffleMode(AudioServiceShuffleMode shuffleMode) async {
     final enablingShuffle =
         !shuffleEnabled && shuffleMode != AudioServiceShuffleMode.none;
     _shuffleMode = shuffleMode;
