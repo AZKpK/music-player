@@ -9,6 +9,7 @@ import '../../core/models/song.dart';
 import '../../core/services/audio_player_providers.dart';
 import '../../core/services/media_library_providers.dart';
 import '../../shared/widgets/alphabet_scroll_bar.dart';
+import '../../shared/widgets/app_select_menu.dart';
 import '../../shared/widgets/group_artwork.dart';
 import '../../shared/widgets/song_artwork.dart';
 import '../player/player_screen.dart';
@@ -87,32 +88,29 @@ class _LibraryScreenState extends ConsumerState<LibraryScreen> {
               },
             ),
             if (!_searching) ...[
-              PopupMenuButton<SongSortOption>(
+              AppSelectMenu<SongSortOption>(
                 icon: const Icon(Icons.sort),
                 tooltip: 'Sortiraj "Vse pesmi"',
-                initialValue: ref.watch(librarySortProvider),
+                value: ref.watch(librarySortProvider),
                 onSelected: (option) =>
                     ref.read(librarySortProvider.notifier).state = option,
-                itemBuilder: (context) => const [
-                  PopupMenuItem(
+                options: const [
+                  AppSelectOption(
                     value: SongSortOption.title,
-                    child: Text('Naslov (A-Ž)'),
+                    label: 'Naslov (A-Ž)',
                   ),
-                  PopupMenuItem(
+                  AppSelectOption(
                     value: SongSortOption.artist,
-                    child: Text('Izvajalec'),
+                    label: 'Izvajalec',
                   ),
-                  PopupMenuItem(
-                    value: SongSortOption.album,
-                    child: Text('Album'),
-                  ),
-                  PopupMenuItem(
+                  AppSelectOption(value: SongSortOption.album, label: 'Album'),
+                  AppSelectOption(
                     value: SongSortOption.dateAddedDesc,
-                    child: Text('Nedavno dodano'),
+                    label: 'Nedavno dodano',
                   ),
-                  PopupMenuItem(
+                  AppSelectOption(
                     value: SongSortOption.duration,
-                    child: Text('Trajanje'),
+                    label: 'Trajanje',
                   ),
                 ],
               ),
@@ -169,48 +167,26 @@ class _PlayLibraryButton extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final songs =
         ref.watch(displayedLibrarySongsProvider).valueOrNull ?? const <Song>[];
-    return IconButton(
-      icon: const Icon(Icons.play_arrow),
+    return AppSelectMenu<bool>(
       tooltip: 'Predvajaj',
-      onPressed: songs.isEmpty
-          ? null
-          : () => _showPlayOptions(context, ref, songs),
+      value: null,
+      enabled: songs.isNotEmpty,
+      icon: const Icon(Icons.play_arrow),
+      options: const [
+        AppSelectOption(
+          value: false,
+          label: 'Po vrstnem redu',
+          icon: Icons.play_arrow,
+        ),
+        AppSelectOption(
+          value: true,
+          label: 'Naključno predvajaj',
+          icon: Icons.shuffle,
+        ),
+      ],
+      onSelected: (shuffle) => _playAll(context, ref, songs, shuffle: shuffle),
     );
   }
-}
-
-Future<void> _showPlayOptions(
-  BuildContext context,
-  WidgetRef ref,
-  List<Song> songs,
-) {
-  return showDialog<void>(
-    context: context,
-    builder: (dialogContext) => AlertDialog(
-      title: const Text('Predvajaj'),
-      content: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          ListTile(
-            leading: const Icon(Icons.play_arrow),
-            title: const Text('Po vrstnem redu'),
-            onTap: () {
-              Navigator.of(dialogContext).pop();
-              _playAll(context, ref, songs, shuffle: false);
-            },
-          ),
-          ListTile(
-            leading: const Icon(Icons.shuffle),
-            title: const Text('Naključno predvajaj'),
-            onTap: () {
-              Navigator.of(dialogContext).pop();
-              _playAll(context, ref, songs, shuffle: true);
-            },
-          ),
-        ],
-      ),
-    ),
-  );
 }
 
 class _ErrorView extends StatelessWidget {
@@ -580,26 +556,57 @@ class _PlayAllActions extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     return Padding(
       padding: const EdgeInsets.fromLTRB(16, 12, 16, 8),
-      child: Row(
-        children: [
-          Expanded(
-            child: FilledButton.icon(
-              key: const Key('play-all-ordered'),
-              icon: const Icon(Icons.play_arrow),
-              label: const Text('Predvajaj vse'),
-              onPressed: () => _playAll(context, ref, songs, shuffle: false),
+      child: SizedBox(
+        width: double.infinity,
+        child: AppSelectMenu<bool>(
+          key: const Key('play-all-options'),
+          value: null,
+          tooltip: 'Predvajaj vse',
+          onSelected: (shuffle) =>
+              _playAll(context, ref, songs, shuffle: shuffle),
+          options: const [
+            AppSelectOption(
+              value: false,
+              label: 'Predvajaj vse po vrstnem redu',
+              icon: Icons.play_arrow,
+            ),
+            AppSelectOption(
+              value: true,
+              label: 'Predvajaj vse naključno',
+              icon: Icons.shuffle,
+            ),
+          ],
+          child: DecoratedBox(
+            decoration: ShapeDecoration(
+              color: Theme.of(context).colorScheme.primary,
+              shape: const StadiumBorder(),
+            ),
+            child: Padding(
+              padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 16),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Icon(
+                    Icons.play_arrow,
+                    color: Theme.of(context).colorScheme.onPrimary,
+                  ),
+                  const SizedBox(width: 8),
+                  Text(
+                    'Predvajaj vse',
+                    style: TextStyle(
+                      color: Theme.of(context).colorScheme.onPrimary,
+                    ),
+                  ),
+                  const SizedBox(width: 4),
+                  Icon(
+                    Icons.arrow_drop_down,
+                    color: Theme.of(context).colorScheme.onPrimary,
+                  ),
+                ],
+              ),
             ),
           ),
-          const SizedBox(width: 8),
-          Expanded(
-            child: OutlinedButton.icon(
-              key: const Key('play-all-shuffled'),
-              icon: const Icon(Icons.shuffle),
-              label: const Text('Naključno'),
-              onPressed: () => _playAll(context, ref, songs, shuffle: true),
-            ),
-          ),
-        ],
+        ),
       ),
     );
   }

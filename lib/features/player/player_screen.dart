@@ -6,6 +6,7 @@ import '../../core/services/audio_player_providers.dart';
 import '../../core/services/media_library_providers.dart';
 import '../../core/services/sleep_timer_provider.dart';
 import '../../core/navigation/player_screen_visibility.dart';
+import '../../shared/widgets/app_select_menu.dart';
 import '../../shared/widgets/song_artwork.dart';
 import '../library/edit_song_metadata_dialog.dart';
 import 'queue_screen.dart';
@@ -13,8 +14,7 @@ import 'queue_screen.dart';
 /// Za koliko preskoči gumb "+5s"/"-5s".
 const _seekStep = Duration(seconds: 5);
 
-/// Ponujene dolžine sleep timerja v izbirnem dialogu (glej
-/// `_showSleepTimerDialog`).
+/// Ponujene dolžine sleep timerja v skupnem izbirniku.
 const _sleepTimerOptions = [
   Duration(minutes: 15),
   Duration(minutes: 30),
@@ -23,7 +23,7 @@ const _sleepTimerOptions = [
   Duration(minutes: 120),
 ];
 
-/// Ponujene hitrosti predvajanja v AppBar meniju.
+/// Ponujene hitrosti predvajanja v skupnem izbirniku.
 const _speedOptions = [0.75, 1.0, 1.25, 1.5, 2.0];
 
 /// Formatira `mm:ss` (ali `h:mm:ss` za daljše trajanje, npr. sleep timer
@@ -86,13 +86,13 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen> {
       appBar: AppBar(
         title: const Text('Predvajam'),
         actions: [
-          PopupMenuButton<double>(
+          AppSelectMenu<double>(
             tooltip: 'Hitrost predvajanja',
-            initialValue: speed,
+            value: speed,
             onSelected: handler.setSpeed,
-            itemBuilder: (context) => [
+            options: [
               for (final option in _speedOptions)
-                PopupMenuItem(value: option, child: Text('${option}x')),
+                AppSelectOption(value: option, label: '${option}x'),
             ],
             child: Padding(
               padding: const EdgeInsets.symmetric(horizontal: 12),
@@ -104,7 +104,7 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen> {
               ),
             ),
           ),
-          const _SleepTimerButton(),
+          _SleepTimerButton(remaining: ref.watch(sleepTimerProvider)),
           IconButton(
             icon: const Icon(Icons.queue_music),
             tooltip: 'Vrsta predvajanja',
@@ -267,9 +267,7 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen> {
     return target;
   }
 
-  /// Skupen "vklopljen" izgled za shuffle/repeat toggle gumbe: sivo
-  /// zaokroženo kvadratno ozadje (namesto privzetega vijoličnega kroga pri
-  /// `IconButton.filled`), da sta oba gumba vizualno usklajena.
+  /// Skupen poudarjen videz za aktivna shuffle in repeat gumba.
   ButtonStyle _toggleOnButtonStyle(BuildContext context) =>
       IconButton.styleFrom(
         backgroundColor: Theme.of(context).colorScheme.surfaceContainerHighest,
@@ -296,20 +294,34 @@ class _PlayerScreenState extends ConsumerState<PlayerScreen> {
 /// lokalno "draft" vrednost (da se slider ne trza nazaj zaradi tikajočega
 /// `position` stream-a), `onSeek` pa pokliče šele ob spustu.
 class _SleepTimerButton extends ConsumerWidget {
-  const _SleepTimerButton();
+  const _SleepTimerButton({required this.remaining});
+
+  final Duration? remaining;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final remaining = ref.watch(sleepTimerProvider);
-    return IconButton(
+    return AppSelectMenu<Duration?>(
+      value: null,
+      tooltip: remaining != null
+          ? 'Sleep timer: ${_formatDuration(remaining!)}'
+          : 'Sleep timer',
       icon: Icon(
         remaining != null ? Icons.bedtime : Icons.bedtime_outlined,
         color: remaining != null ? Theme.of(context).colorScheme.primary : null,
       ),
-      tooltip: remaining != null
-          ? 'Sleep timer: ${_formatDuration(remaining)}'
-          : 'Sleep timer',
-      onPressed: () => _showSleepTimerDialog(context, ref, remaining),
+      options: [
+        if (remaining != null)
+          const AppSelectOption(value: null, label: 'Prekliči timer'),
+        for (final duration in _sleepTimerOptions)
+          AppSelectOption(value: duration, label: '${duration.inMinutes} min'),
+      ],
+      onSelected: (duration) {
+        if (duration == null) {
+          ref.read(sleepTimerProvider.notifier).cancel();
+        } else {
+          ref.read(sleepTimerProvider.notifier).start(duration);
+        }
+      },
     );
   }
 }
@@ -377,37 +389,4 @@ class _SeekBarState extends ConsumerState<_SeekBar> {
       ),
     );
   }
-}
-
-/// Prikaže dialog za izbiro sleep timerja (15/30/45/60 min); če je timer že
-/// aktiven, ponudi namesto tega "Prekliči".
-Future<void> _showSleepTimerDialog(
-  BuildContext context,
-  WidgetRef ref,
-  Duration? currentRemaining,
-) {
-  return showDialog<void>(
-    context: context,
-    builder: (context) => SimpleDialog(
-      title: const Text('Sleep timer'),
-      children: [
-        if (currentRemaining != null)
-          SimpleDialogOption(
-            onPressed: () {
-              ref.read(sleepTimerProvider.notifier).cancel();
-              Navigator.of(context).pop();
-            },
-            child: const Text('Prekliči timer'),
-          ),
-        for (final duration in _sleepTimerOptions)
-          SimpleDialogOption(
-            onPressed: () {
-              ref.read(sleepTimerProvider.notifier).start(duration);
-              Navigator.of(context).pop();
-            },
-            child: Text('${duration.inMinutes} min'),
-          ),
-      ],
-    ),
-  );
 }

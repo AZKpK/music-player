@@ -44,6 +44,20 @@ app.*.map.json
 /android/app/profile
 /android/app/release
 .claude/
+.agents/
+.codex/
+
+# Local Flutter tooling and platform build caches
+.fvm/
+.fleet/
+**/.gradle/
+**/.kotlin/
+**/.cxx/
+**/ephemeral/
+**/Pods/
+**/DerivedData/
+**/xcuserdata/
+**/.symlinks/
 
 music/
 .vscode/
