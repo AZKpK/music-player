@@ -1,4 +1,4 @@
-when i play a song and enable shuffle it only shuffeles the next 250 songs (so if i play a song named "AAA" i will only get songs starting with 'A', and mybe a few with 'b') - make it so that the first song played is the one clicked on, and the other 249 in the queue are random between all songs (not just next 249 songs in random order) - note: this isnt a problem if the album /playlist / all songs downloaded/ artist dont have more than 250 songs
-add play all in order and play all shuffeled button to all_songs/albums/artists
-add song images to queue
-če je naslov pesmi predolg bodo odmiki pesmi postali neenakomerni, poleg tega pa se bo še vedno besedilo prekrivalo. popravi tako da če je naslov predlog bo prikazano samo to kar lahko stlačimo v 1 vrstico in na koncu "...", celoten naslol pa naj bo mogoče videti ko klikneš na tri navpične pikice(tam kjer lahko izbereš da pesem predvajaš naslednje, dodaš v playisto, likeas, spremenis naslovnico, uredis metapodatke in izbrises)
+popravi: sleep ko klikneš na sleep timer naj se vidi koliko časa je še pred izklopom. poleg tega pa gumb "izklopi
+  timer" ne deluje (vsaj vizualno)
+
+ene 2x do sedaj se je player samodejno ustavil brez razloga? screen je bil ugasnjen in nisem pritisnil nobenega gumba
