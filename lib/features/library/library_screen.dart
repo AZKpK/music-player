@@ -15,9 +15,14 @@ import '../../shared/widgets/group_artwork.dart';
 import '../../shared/widgets/song_artwork.dart';
 import '../player/player_screen.dart';
 import '../playlists/playlists_screen.dart';
+import '../wrap/wrap_screen.dart';
 import 'library_test_screen.dart';
 import 'group_artwork_actions.dart';
 import 'song_actions.dart';
+
+/// Akcije v knjižnici navigacijskem meniju (glej docs/spec-wrap.md "UI" -
+/// nadomesti prejšnji samostojni folder-scan `IconButton`).
+enum LibraryMenuAction { settings, playFromFolder, wrap }
 
 /// Prava glasbena knjižnica z naprave (MediaStore preko `on_audio_query`),
 /// z zavihki za vse pesmi ter grupiranjem po izvajalcu/albumu.
@@ -88,6 +93,23 @@ class _LibraryScreenState extends ConsumerState<LibraryScreen> {
     if (mounted) await SystemNavigator.pop();
   }
 
+  void _onMenuAction(BuildContext context, LibraryMenuAction action) {
+    switch (action) {
+      case LibraryMenuAction.settings:
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(const SnackBar(content: Text('Kmalu na voljo')));
+      case LibraryMenuAction.playFromFolder:
+        Navigator.of(
+          context,
+        ).push(MaterialPageRoute(builder: (_) => const LibraryTestScreen()));
+      case LibraryMenuAction.wrap:
+        Navigator.of(
+          context,
+        ).push(MaterialPageRoute(builder: (_) => const WrapScreen()));
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final songsAsync = ref.watch(librarySongsProvider);
@@ -155,16 +177,28 @@ class _LibraryScreenState extends ConsumerState<LibraryScreen> {
                   ],
                 ),
                 const _PlayLibraryButton(),
-                // Folder-scan ostaja kot alternativa: koristen za datoteke, ki jih
-                // MediaStore še ni indeksiral (npr. ravnokar prekopirane preko adb).
-                IconButton(
+                AppSelectMenu<LibraryMenuAction>(
                   icon: const Icon(Icons.snippet_folder_outlined),
-                  tooltip: 'Izberi mapo ročno (folder-scan)',
-                  onPressed: () => Navigator.of(context).push(
-                    MaterialPageRoute(
-                      builder: (_) => const LibraryTestScreen(),
+                  tooltip: 'Več',
+                  value: null,
+                  onSelected: (action) => _onMenuAction(context, action),
+                  options: const [
+                    AppSelectOption(
+                      value: LibraryMenuAction.settings,
+                      label: 'Nastavitve',
+                      icon: Icons.settings_outlined,
                     ),
-                  ),
+                    AppSelectOption(
+                      value: LibraryMenuAction.playFromFolder,
+                      label: 'Predvajaj iz mape',
+                      icon: Icons.folder_outlined,
+                    ),
+                    AppSelectOption(
+                      value: LibraryMenuAction.wrap,
+                      label: 'Wrap',
+                      icon: Icons.auto_awesome_outlined,
+                    ),
+                  ],
                 ),
               ],
             ],

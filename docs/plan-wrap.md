@@ -146,8 +146,20 @@
    wiring, not pure logic) — the boundary math it depends on
    (`mostRecentWrapBoundary`, `computeWrapPeriodBounds`) is pure and is
    covered directly in `wrap_stats_service_test.dart` instead.
-7. UI: `library_screen.dart` menu swap, then `wrap_screen.dart` (add
-   `fl_chart` to `pubspec.yaml` at this point, not earlier).
+7. **UI — DONE:** `library_screen.dart`'s folder-scan `IconButton` replaced
+   with `AppSelectMenu<LibraryMenuAction>` (Settings snackbar / Play from a
+   folder / Wrap), exactly the 3-option menu from spec. `wrap_screen.dart`
+   (new): total minutes card, genre toggle (writes straight to
+   `AppDatabase.updateWrapSettings`, same direct-DB-call pattern already used
+   elsewhere in the UI layer, e.g. `playlists_screen.dart`), a small
+   `fl_chart` `BarChart` of the top 5 songs, full ranked lists for top
+   songs/artists/albums, and two playlist links (`Wrap <previous year>`,
+   `Wrap All-Time`) resolved by name from `playlistsProvider` — disabled with
+   "Še ni na voljo" if that playlist doesn't exist yet (e.g. no play history).
+   Triggers `WrapPlaylistGenerator.regenerateIfDue()` once in `initState`
+   (fire-and-forget; genuinely a no-op unless the reset-date boundary was
+   actually crossed). `fl_chart: ^0.69.2` added to `pubspec.yaml`,
+   `flutter pub get` resolved cleanly.
 8. Full gate: `flutter analyze`, `flutter test`, `flutter build apk --debug`.
 
 Each numbered step is its own commit (code + its tests together).
