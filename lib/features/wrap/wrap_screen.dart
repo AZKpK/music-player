@@ -5,13 +5,13 @@
 // sproži ob odprtju zaslona, a dejansko naredi kaj le, če je reset-meja bila
 // prestopljena od zadnje generacije (glej WrapPlaylistGenerator.regenerateIfDue).
 
-import 'package:fl_chart/fl_chart.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../core/db/app_database.dart';
 import '../../core/services/playlist_providers.dart';
 import '../../core/services/wrap_stats_service.dart';
+import '../../shared/widgets/app_select_menu.dart';
 import '../playlists/playlists_screen.dart';
 import 'wrap_providers.dart';
 
@@ -36,9 +36,44 @@ class _WrapScreenState extends ConsumerState<WrapScreen> {
     final statsAsync = ref.watch(wrapStatsProvider);
     final genreEnabled = ref.watch(wrapGenreEnabledProvider);
     final bounds = ref.watch(wrapPeriodBoundsProvider);
+    final songSortOption = ref.watch(wrapSongSortOptionProvider);
 
     return Scaffold(
-      appBar: AppBar(title: Text('Wrap ${bounds.currentPeriodStart.year}')),
+      appBar: AppBar(
+        title: Text('Wrap ${bounds.currentPeriodStart.year}'),
+        actions: [
+          AppSelectMenu<WrapSongSortOption>(
+            icon: const Icon(Icons.sort),
+            tooltip: 'Sortiraj "Top pesmi"',
+            value: songSortOption,
+            onSelected: (option) =>
+                ref.read(wrapSongSortOptionProvider.notifier).state = option,
+            options: const [
+              AppSelectOption(
+                value: WrapSongSortOption.playCount,
+                label: 'Število predvajanj',
+              ),
+              AppSelectOption(
+                value: WrapSongSortOption.listeningTime,
+                label: 'Čas poslušanja',
+              ),
+            ],
+          ),
+          PopupMenuButton<bool>(
+            icon: const Icon(Icons.more_vert),
+            itemBuilder: (context) => [
+              CheckedPopupMenuItem<bool>(
+                value: true,
+                checked: genreEnabled,
+                child: const Text('Prikaži top žanr'),
+              ),
+            ],
+            onSelected: (_) => ref
+                .read(appDatabaseProvider)
+                .updateWrapSettings(genreEnabled: !genreEnabled),
+          ),
+        ],
+      ),
       body: statsAsync.when(
         loading: () => const Center(child: CircularProgressIndicator()),
         error: (error, _) => Center(child: Text('$error')),
@@ -46,35 +81,25 @@ class _WrapScreenState extends ConsumerState<WrapScreen> {
           padding: const EdgeInsets.all(16),
           children: [
             _TotalMinutesCard(totalListened: stats.totalListened),
-            const SizedBox(height: 16),
-            SwitchListTile(
-              title: const Text('Prikaži top žanr'),
-              value: genreEnabled,
-              onChanged: (value) => ref
-                  .read(appDatabaseProvider)
-                  .updateWrapSettings(genreEnabled: value),
-            ),
             if (genreEnabled && stats.topGenre != null)
               Padding(
-                padding: const EdgeInsets.only(bottom: 8),
+                padding: const EdgeInsets.only(top: 8),
                 child: Chip(label: Text('Top žanr: ${stats.topGenre}')),
               ),
             const SizedBox(height: 8),
-            if (stats.topSongs.isNotEmpty) ...[
-              const _SectionTitle('Top pesmi'),
-              SizedBox(
-                height: 220,
-                child: _TopSongsChart(
-                  topSongs: stats.topSongs.take(5).toList(),
-                ),
-              ),
-            ],
+            if (stats.topSongs.isNotEmpty) const _SectionTitle('Top pesmi'),
             _RankedList(
               title: null,
               entries: [
                 for (final s in stats.topSongs)
-                  _RankedEntry(name: s.song.title, playCount: s.playCount),
+                  _RankedEntry(
+                    name: s.song.title,
+                    playCount: s.playCount,
+                    listenedMs: s.listenedMs,
+                  ),
               ],
+              showListenedTime:
+                  songSortOption == WrapSongSortOption.listeningTime,
             ),
             _RankedList(
               title: 'Top izvajalci',
@@ -140,76 +165,37 @@ class _TotalMinutesCard extends StatelessWidget {
   }
 }
 
-class _TopSongsChart extends StatelessWidget {
-  const _TopSongsChart({required this.topSongs});
-
-  final List<WrapSongStat> topSongs;
-
-  @override
-  Widget build(BuildContext context) {
-    return BarChart(
-      BarChartData(
-        borderData: FlBorderData(show: false),
-        gridData: const FlGridData(show: false),
-        barGroups: [
-          for (var i = 0; i < topSongs.length; i++)
-            BarChartGroupData(
-              x: i,
-              barRods: [
-                BarChartRodData(toY: topSongs[i].playCount.toDouble()),
-              ],
-            ),
-        ],
-        titlesData: FlTitlesData(
-          topTitles: const AxisTitles(
-            sideTitles: SideTitles(showTitles: false),
-          ),
-          rightTitles: const AxisTitles(
-            sideTitles: SideTitles(showTitles: false),
-          ),
-          leftTitles: const AxisTitles(
-            sideTitles: SideTitles(showTitles: true, reservedSize: 28),
-          ),
-          bottomTitles: AxisTitles(
-            sideTitles: SideTitles(
-              showTitles: true,
-              reservedSize: 48,
-              getTitlesWidget: (value, meta) {
-                final index = value.toInt();
-                if (index < 0 || index >= topSongs.length) {
-                  return const SizedBox.shrink();
-                }
-                return Padding(
-                  padding: const EdgeInsets.only(top: 8),
-                  child: Text(
-                    topSongs[index].song.title,
-                    maxLines: 2,
-                    overflow: TextOverflow.ellipsis,
-                    textAlign: TextAlign.center,
-                    style: const TextStyle(fontSize: 10),
-                  ),
-                );
-              },
-            ),
-          ),
-        ),
-      ),
-    );
-  }
-}
-
 class _RankedEntry {
-  const _RankedEntry({required this.name, required this.playCount});
+  const _RankedEntry({
+    required this.name,
+    required this.playCount,
+    this.listenedMs,
+  });
 
   final String name;
   final int playCount;
+
+  /// `null` za izvajalce/albume (glej `WrapNamedStat`, ki nima te metrike) -
+  /// pri pesmih je vedno na voljo, a se v trailing prikaže samo, ko
+  /// `_RankedList.showListenedTime` to zahteva.
+  final int? listenedMs;
 }
 
 class _RankedList extends StatelessWidget {
-  const _RankedList({required this.title, required this.entries});
+  const _RankedList({
+    required this.title,
+    required this.entries,
+    this.showListenedTime = false,
+  });
 
   final String? title;
   final List<_RankedEntry> entries;
+
+  /// `true` samo za `topSongs`, ko je izbrano sortiranje po času poslušanja
+  /// (glej wrapSongSortOptionProvider) - brez tega bi sprememba vrstnega
+  /// reda ostala vizualno neobrazložena (seznam bi še vedno kazal
+  /// `playCount`, čeprav je razvrščen po drugi metriki).
+  final bool showListenedTime;
 
   @override
   Widget build(BuildContext context) {
@@ -227,11 +213,27 @@ class _RankedList extends StatelessWidget {
               maxLines: 1,
               overflow: TextOverflow.ellipsis,
             ),
-            trailing: Text('${entries[i].playCount}x'),
+            trailing: Text(
+              showListenedTime && entries[i].listenedMs != null
+                  ? _formatListened(
+                      Duration(milliseconds: entries[i].listenedMs!),
+                    )
+                  : '${entries[i].playCount}x',
+            ),
           ),
       ],
     );
   }
+}
+
+String _formatListened(Duration duration) {
+  String two(int n) => n.toString().padLeft(2, '0');
+  final hours = duration.inHours;
+  final minutes = duration.inMinutes.remainder(60);
+  final seconds = duration.inSeconds.remainder(60);
+  return hours > 0
+      ? '$hours:${two(minutes)}:${two(seconds)}'
+      : '${duration.inMinutes}:${two(seconds)}';
 }
 
 /// Povezava do ene izmed dveh generiranih Wrap playlist (glej spec "Top-100
