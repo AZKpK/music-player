@@ -24,6 +24,45 @@ bool isCountedPlay(int msListened, int trackDurationMs) {
 /// pesmi, `topArtists`/`topAlbums` ostajata vedno razvrščena po `playCount`.
 enum WrapSongSortOption { playCount, listeningTime }
 
+/// Kriterij razvrščanja skupin (izvajalci/playliste) izven wrap_screen.dart
+/// (glej docs/faza2-wrap/intent3.md) - `alphabetical` je privzeta vrednost za
+/// oba klicatelja (library_screen.dart/playlists_screen.dart).
+enum GroupSortOption { alphabetical, playCount, listeningTime }
+
+/// All-time (ne omejeno na eno wrap obdobje) play count in `listenedMs` za
+/// eno pesem - glej [computeSongPlayStats]. Ista oblika kot `WrapSongStat`,
+/// a brez `song` reference, ker se uporablja tudi za agregacijo izvajalcev/
+/// playlist (kjer je potrebna samo metrika, ne posamezna pesem).
+class SongPlayStat {
+  const SongPlayStat({required this.playCount, required this.listenedMs});
+
+  final int playCount;
+  final int listenedMs;
+}
+
+/// `songId -> SongPlayStat` čez CEL `entries` (brez omejitve na wrap obdobje)
+/// - uporabljeno za "sortiraj po št. predvajanj/času poslušanja" izven
+/// wrap_screen.dart (library_screen.dart/playlists_screen.dart, glej
+/// docs/faza2-wrap/intent3.md). Isti [isCountedPlay] filter kot
+/// `computeWrapStats`, da obe mesti rangirata isti nabor "resničnih" plays.
+Map<String, SongPlayStat> computeSongPlayStats(List<PlayHistoryEntry> entries) {
+  final playCounts = <String, int>{};
+  final listenedMs = <String, int>{};
+  for (final entry in entries) {
+    if (!isCountedPlay(entry.msListened, entry.trackDurationMs)) continue;
+    playCounts.update(entry.songId, (count) => count + 1, ifAbsent: () => 1);
+    listenedMs.update(
+      entry.songId,
+      (total) => total + entry.msListened,
+      ifAbsent: () => entry.msListened,
+    );
+  }
+  return {
+    for (final id in playCounts.keys)
+      id: SongPlayStat(playCount: playCounts[id]!, listenedMs: listenedMs[id]!),
+  };
+}
+
 class WrapSongStat {
   const WrapSongStat({
     required this.song,
@@ -57,8 +96,9 @@ class WrapStats {
     this.topGenre,
   });
 
-  /// Padajoče po `playCount`, brez omejitve dolžine - UI (wrap_screen.dart)
-  /// izreže toliko, kolikor jih dejansko prikaže.
+  /// Padajoče po `playCount` (ali `listenedMs`, glej `songSortOption`) -
+  /// dolžina je odvisna od `maxTopEntries`, ki ga je klicatelj podal
+  /// `computeWrapStats`-u (privzeto neomejeno).
   final List<WrapSongStat> topSongs;
   final List<WrapNamedStat> topArtists;
   final List<WrapNamedStat> topAlbums;
@@ -84,6 +124,13 @@ WrapStats computeWrapStats({
   required Map<String, Song> libraryById,
   bool genreEnabled = false,
   WrapSongSortOption songSortOption = WrapSongSortOption.playCount,
+
+  /// Omeji `topSongs`/`topArtists`/`topAlbums` na prvih `maxTopEntries`
+  /// (po sortiranju) - `null` (privzeto) pomeni neomejeno, kar potrebuje
+  /// npr. `WrapPlaylistGenerator` (Top-100 playlists, glej
+  /// wrap_playlist_service.dart), medtem ko wrap_screen.dart za prikaz poda
+  /// manjšo vrednost (glej docs/faza2-wrap/intent3.md).
+  int? maxTopEntries,
 }) {
   final totalListenedMs = entries.fold<int>(
     0,
@@ -101,11 +148,7 @@ WrapStats computeWrapStats({
     final song = libraryById[entry.songId];
     if (song == null) continue;
 
-    songPlayCounts.update(
-      song.id,
-      (count) => count + 1,
-      ifAbsent: () => 1,
-    );
+    songPlayCounts.update(song.id, (count) => count + 1, ifAbsent: () => 1);
     songListenedMs.update(
       song.id,
       (total) => total + entry.msListened,
@@ -116,11 +159,7 @@ WrapStats computeWrapStats({
       (count) => count + 1,
       ifAbsent: () => 1,
     );
-    albumPlayCounts.update(
-      song.album,
-      (count) => count + 1,
-      ifAbsent: () => 1,
-    );
+    albumPlayCounts.update(song.album, (count) => count + 1, ifAbsent: () => 1);
     if (genreEnabled && song.genre != null) {
       genrePlayCounts.update(
         song.genre!,
@@ -130,27 +169,28 @@ WrapStats computeWrapStats({
     }
   }
 
-  final topSongs = songPlayCounts.entries
-      .map(
-        (e) => WrapSongStat(
-          song: libraryById[e.key]!,
-          playCount: e.value,
-          listenedMs: songListenedMs[e.key]!,
-        ),
-      )
-      .toList()
-    ..sort(
-      (a, b) => _compareStats(
-        songSortOption == WrapSongSortOption.listeningTime
-            ? a.listenedMs
-            : a.playCount,
-        songSortOption == WrapSongSortOption.listeningTime
-            ? b.listenedMs
-            : b.playCount,
-        a.song.title,
-        b.song.title,
-      ),
-    );
+  final topSongs =
+      songPlayCounts.entries
+          .map(
+            (e) => WrapSongStat(
+              song: libraryById[e.key]!,
+              playCount: e.value,
+              listenedMs: songListenedMs[e.key]!,
+            ),
+          )
+          .toList()
+        ..sort(
+          (a, b) => _compareStats(
+            songSortOption == WrapSongSortOption.listeningTime
+                ? a.listenedMs
+                : a.playCount,
+            songSortOption == WrapSongSortOption.listeningTime
+                ? b.listenedMs
+                : b.playCount,
+            a.song.title,
+            b.song.title,
+          ),
+        );
 
   final topArtists = _sortedNamedStats(artistPlayCounts);
   final topAlbums = _sortedNamedStats(albumPlayCounts);
@@ -161,13 +201,16 @@ WrapStats computeWrapStats({
   }
 
   return WrapStats(
-    topSongs: topSongs,
-    topArtists: topArtists,
-    topAlbums: topAlbums,
+    topSongs: _limited(topSongs, maxTopEntries),
+    topArtists: _limited(topArtists, maxTopEntries),
+    topAlbums: _limited(topAlbums, maxTopEntries),
     totalListened: Duration(milliseconds: totalListenedMs),
     topGenre: topGenre,
   );
 }
+
+List<T> _limited<T>(List<T> list, int? max) =>
+    max == null || list.length <= max ? list : list.sublist(0, max);
 
 /// Meje trenutnega (odprtega, "live") in prejšnjega (ravnokar zaprtega,
 /// za letno snapshot playlisto) Wrap obdobja glede na

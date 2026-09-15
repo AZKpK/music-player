@@ -9,6 +9,9 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../core/models/song.dart';
 import '../../core/services/audio_player_providers.dart';
 import '../../core/services/media_library_providers.dart';
+import '../../core/services/playlist_providers.dart'
+    show playlistSortProvider, songPlayStatsProvider;
+import '../../core/services/wrap_stats_service.dart' show GroupSortOption;
 import '../../shared/widgets/alphabet_scroll_bar.dart';
 import '../../shared/widgets/app_select_menu.dart';
 import '../../shared/widgets/group_artwork.dart';
@@ -33,16 +36,31 @@ class LibraryScreen extends ConsumerStatefulWidget {
   ConsumerState<LibraryScreen> createState() => _LibraryScreenState();
 }
 
-class _LibraryScreenState extends ConsumerState<LibraryScreen> {
+class _LibraryScreenState extends ConsumerState<LibraryScreen>
+    with SingleTickerProviderStateMixin {
   static const _searchDebounce = Duration(milliseconds: 250);
+  static const _tabCount = 4;
 
   bool _searching = false;
   bool _exitDialogOpen = false;
   final _searchController = TextEditingController();
   Timer? _searchTimer;
+  late final TabController _tabController;
+  int _tabIndex = 0;
+
+  @override
+  void initState() {
+    super.initState();
+    _tabController = TabController(length: _tabCount, vsync: this)
+      ..addListener(() {
+        if (_tabController.index == _tabIndex) return;
+        setState(() => _tabIndex = _tabController.index);
+      });
+  }
 
   @override
   void dispose() {
+    _tabController.dispose();
     _searchTimer?.cancel();
     _searchController.dispose();
     super.dispose();
@@ -119,118 +137,190 @@ class _LibraryScreenState extends ConsumerState<LibraryScreen> {
       onPopInvokedWithResult: (didPop, _) {
         if (!didPop) _confirmExit();
       },
-      child: DefaultTabController(
-        length: 4,
-        child: Scaffold(
-          appBar: AppBar(
-            title: _searching
-                ? TextField(
-                    controller: _searchController,
-                    autofocus: true,
-                    decoration: const InputDecoration(
-                      hintText: 'Išči po naslovu/izvajalcu/albumu...',
-                      border: InputBorder.none,
-                    ),
-                    onChanged: _onSearchChanged,
-                  )
-                : const Text('Knjižnica'),
-            actions: [
-              IconButton(
-                icon: Icon(_searching ? Icons.close : Icons.search),
-                tooltip: _searching ? 'Prekliči iskanje' : 'Išči',
-                onPressed: () {
-                  if (_searching) {
-                    _stopSearching();
-                  } else {
-                    setState(() => _searching = true);
-                  }
-                },
+      child: Scaffold(
+        appBar: AppBar(
+          title: _searching
+              ? TextField(
+                  controller: _searchController,
+                  autofocus: true,
+                  decoration: const InputDecoration(
+                    hintText: 'Išči po naslovu/izvajalcu/albumu...',
+                    border: InputBorder.none,
+                  ),
+                  onChanged: _onSearchChanged,
+                )
+              : const Text('Knjižnica'),
+          actions: [
+            IconButton(
+              icon: Icon(_searching ? Icons.close : Icons.search),
+              tooltip: _searching ? 'Prekliči iskanje' : 'Išči',
+              onPressed: () {
+                if (_searching) {
+                  _stopSearching();
+                } else {
+                  setState(() => _searching = true);
+                }
+              },
+            ),
+            if (!_searching) ...[
+              if (_tabIndex == 0) const _AllSongsSortMenu(),
+              if (_tabIndex == 1) const _ArtistSortMenu(),
+              if (_tabIndex == 3) const _PlaylistSortMenu(),
+              const _PlayLibraryButton(),
+              AppSelectMenu<LibraryMenuAction>(
+                icon: const Icon(Icons.more_vert),
+                tooltip: 'Več',
+                value: null,
+                onSelected: (action) => _onMenuAction(context, action),
+                options: const [
+                  AppSelectOption(
+                    value: LibraryMenuAction.settings,
+                    label: 'Nastavitve',
+                    icon: Icons.settings_outlined,
+                  ),
+                  AppSelectOption(
+                    value: LibraryMenuAction.playFromFolder,
+                    label: 'Predvajaj iz mape',
+                    icon: Icons.folder_outlined,
+                  ),
+                  AppSelectOption(
+                    value: LibraryMenuAction.wrap,
+                    label: 'Wrap',
+                    icon: Icons.auto_awesome_outlined,
+                  ),
+                ],
               ),
-              if (!_searching) ...[
-                AppSelectMenu<SongSortOption>(
-                  icon: const Icon(Icons.sort),
-                  tooltip: 'Sortiraj "Vse pesmi"',
-                  value: ref.watch(librarySortProvider),
-                  onSelected: (option) =>
-                      ref.read(librarySortProvider.notifier).state = option,
-                  options: const [
-                    AppSelectOption(
-                      value: SongSortOption.title,
-                      label: 'Naslov (A-Ž)',
-                    ),
-                    AppSelectOption(
-                      value: SongSortOption.artist,
-                      label: 'Izvajalec',
-                    ),
-                    AppSelectOption(
-                      value: SongSortOption.album,
-                      label: 'Album',
-                    ),
-                    AppSelectOption(
-                      value: SongSortOption.dateAddedDesc,
-                      label: 'Nedavno dodano',
-                    ),
-                    AppSelectOption(
-                      value: SongSortOption.duration,
-                      label: 'Trajanje',
-                    ),
-                  ],
-                ),
-                const _PlayLibraryButton(),
-                AppSelectMenu<LibraryMenuAction>(
-                  icon: const Icon(Icons.more_vert),
-                  tooltip: 'Več',
-                  value: null,
-                  onSelected: (action) => _onMenuAction(context, action),
-                  options: const [
-                    AppSelectOption(
-                      value: LibraryMenuAction.settings,
-                      label: 'Nastavitve',
-                      icon: Icons.settings_outlined,
-                    ),
-                    AppSelectOption(
-                      value: LibraryMenuAction.playFromFolder,
-                      label: 'Predvajaj iz mape',
-                      icon: Icons.folder_outlined,
-                    ),
-                    AppSelectOption(
-                      value: LibraryMenuAction.wrap,
-                      label: 'Wrap',
-                      icon: Icons.auto_awesome_outlined,
-                    ),
-                  ],
-                ),
-              ],
             ],
-            bottom: const TabBar(
-              tabs: [
-                Tab(text: 'Vse pesmi'),
-                Tab(text: 'Izvajalci'),
-                Tab(text: 'Albumi'),
-                Tab(text: 'Playliste'),
-              ],
-            ),
+          ],
+          bottom: TabBar(
+            controller: _tabController,
+            tabs: const [
+              Tab(text: 'Vse pesmi'),
+              Tab(text: 'Izvajalci'),
+              Tab(text: 'Albumi'),
+              Tab(text: 'Playliste'),
+            ],
           ),
-          body: songsAsync.when(
-            loading: () => const Center(child: CircularProgressIndicator()),
-            error: (error, _) => _ErrorView(
-              message: '$error',
-              onRetry: () => ref.invalidate(rawLibrarySongsProvider),
-            ),
-            data: (_) => TabBarView(
-              children: [
-                const _AllSongsTab(),
-                _GroupedTab(groupsProvider: songsByArtistProvider),
-                _GroupedTab(
-                  groupsProvider: songsByAlbumProvider,
-                  sortByTrack: true,
-                ),
-                const PlaylistsTab(),
-              ],
-            ),
+        ),
+        body: songsAsync.when(
+          loading: () => const Center(child: CircularProgressIndicator()),
+          error: (error, _) => _ErrorView(
+            message: '$error',
+            onRetry: () => ref.invalidate(rawLibrarySongsProvider),
+          ),
+          data: (_) => TabBarView(
+            controller: _tabController,
+            children: [
+              const _AllSongsTab(),
+              _GroupedTab(
+                groupsProvider: songsByArtistProvider,
+                sortOptionProvider: artistSortProvider,
+              ),
+              _GroupedTab(
+                groupsProvider: songsByAlbumProvider,
+                sortByTrack: true,
+              ),
+              const PlaylistsTab(),
+            ],
           ),
         ),
       ),
+    );
+  }
+}
+
+/// Sortiraj "Vse pesmi" - obstoječe opcije + "kopirani" Wrap kriterij (glej
+/// docs/faza2-wrap/intent3.md).
+class _AllSongsSortMenu extends ConsumerWidget {
+  const _AllSongsSortMenu();
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    return AppSelectMenu<SongSortOption>(
+      icon: const Icon(Icons.sort),
+      tooltip: 'Sortiraj "Vse pesmi"',
+      value: ref.watch(librarySortProvider),
+      onSelected: (option) =>
+          ref.read(librarySortProvider.notifier).state = option,
+      options: const [
+        AppSelectOption(value: SongSortOption.title, label: 'Naslov (A-Ž)'),
+        AppSelectOption(value: SongSortOption.artist, label: 'Izvajalec'),
+        AppSelectOption(value: SongSortOption.album, label: 'Album'),
+        AppSelectOption(
+          value: SongSortOption.dateAddedDesc,
+          label: 'Nedavno dodano',
+        ),
+        AppSelectOption(value: SongSortOption.duration, label: 'Trajanje'),
+        AppSelectOption(
+          value: SongSortOption.playCount,
+          label: 'Število predvajanj',
+        ),
+        AppSelectOption(
+          value: SongSortOption.listeningTime,
+          label: 'Čas poslušanja',
+        ),
+      ],
+    );
+  }
+}
+
+/// Sortiraj "Izvajalci" - glej docs/faza2-wrap/intent3.md ("Albumi" namerno
+/// izpuščen, glej "Decisions").
+class _ArtistSortMenu extends ConsumerWidget {
+  const _ArtistSortMenu();
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    return AppSelectMenu<GroupSortOption>(
+      icon: const Icon(Icons.sort),
+      tooltip: 'Sortiraj "Izvajalci"',
+      value: ref.watch(artistSortProvider),
+      onSelected: (option) =>
+          ref.read(artistSortProvider.notifier).state = option,
+      options: const [
+        AppSelectOption(
+          value: GroupSortOption.alphabetical,
+          label: 'Ime (A-Ž)',
+        ),
+        AppSelectOption(
+          value: GroupSortOption.playCount,
+          label: 'Število predvajanj',
+        ),
+        AppSelectOption(
+          value: GroupSortOption.listeningTime,
+          label: 'Čas poslušanja',
+        ),
+      ],
+    );
+  }
+}
+
+/// Sortiraj "Playliste" - glej docs/faza2-wrap/intent3.md.
+class _PlaylistSortMenu extends ConsumerWidget {
+  const _PlaylistSortMenu();
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    return AppSelectMenu<GroupSortOption>(
+      icon: const Icon(Icons.sort),
+      tooltip: 'Sortiraj "Playliste"',
+      value: ref.watch(playlistSortProvider),
+      onSelected: (option) =>
+          ref.read(playlistSortProvider.notifier).state = option,
+      options: const [
+        AppSelectOption(
+          value: GroupSortOption.alphabetical,
+          label: 'Ime (A-Ž)',
+        ),
+        AppSelectOption(
+          value: GroupSortOption.playCount,
+          label: 'Število predvajanj',
+        ),
+        AppSelectOption(
+          value: GroupSortOption.listeningTime,
+          label: 'Čas poslušanja',
+        ),
+      ],
     );
   }
 }
@@ -324,6 +414,8 @@ String Function(Song song)? _alphabetKeyForSort(SongSortOption option) {
       return (song) => song.album;
     case SongSortOption.dateAddedDesc:
     case SongSortOption.duration:
+    case SongSortOption.playCount:
+    case SongSortOption.listeningTime:
       return null;
   }
 }
@@ -429,13 +521,22 @@ class _SongListViewState extends ConsumerState<_SongListView> {
 /// znotraj izbrane skupine. Iskalno polje filtrira imena skupin, A-Z trak pa
 /// skoči do prve skupine z izbrano začetnico.
 class _GroupedTab extends ConsumerStatefulWidget {
-  const _GroupedTab({required this.groupsProvider, this.sortByTrack = false});
+  const _GroupedTab({
+    required this.groupsProvider,
+    this.sortByTrack = false,
+    this.sortOptionProvider,
+  });
 
   final ProviderListenable<AsyncValue<Map<String, List<Song>>>> groupsProvider;
 
   /// Za "Albumi" razvrsti pesmi znotraj skupine po `trackNumber` (mesto na
   /// albumu) namesto po abecedi - glej `_sortGroupSongs`.
   final bool sortByTrack;
+
+  /// Kriterij razvrščanja SAMIH skupin (imen) - `null` (npr. "Albumi") pomeni
+  /// vedno abecedno, glej docs/faza2-wrap/intent3.md "Decisions". Ko podan
+  /// (npr. "Izvajalci"), se skupine razvrstijo z [sortGroupNames].
+  final StateProvider<GroupSortOption>? sortOptionProvider;
 
   @override
   ConsumerState<_GroupedTab> createState() => _GroupedTabState();
@@ -463,13 +564,17 @@ class _GroupedTabState extends ConsumerState<_GroupedTab> {
   Widget build(BuildContext context) {
     final groupsAsync = ref.watch(widget.groupsProvider);
     final query = ref.watch(librarySearchQueryProvider);
+    final sortOptionProvider = widget.sortOptionProvider;
+    final sortOption = sortOptionProvider == null
+        ? GroupSortOption.alphabetical
+        : ref.watch(sortOptionProvider);
+    final playStats = ref.watch(songPlayStatsProvider);
     return groupsAsync.when(
       loading: () => const Center(child: CircularProgressIndicator()),
       error: (error, _) => Center(child: Text('$error')),
       data: (groups) {
         final filteredGroups = filterLibraryGroups(groups, query);
-        final names = filteredGroups.keys.toList()
-          ..sort((a, b) => a.toLowerCase().compareTo(b.toLowerCase()));
+        final names = sortGroupNames(filteredGroups, sortOption, playStats);
         if (names.isEmpty) return const Center(child: Text('Ni zadetkov'));
 
         final groupType = widget.sortByTrack

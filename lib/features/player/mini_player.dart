@@ -183,6 +183,7 @@ class _MiniPlayerControls extends ConsumerWidget {
     );
   }
 }
+
 /*
 String _formatDuration(Duration duration) {
   final hours = duration.inHours;

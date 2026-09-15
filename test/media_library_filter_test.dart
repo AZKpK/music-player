@@ -6,6 +6,7 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:music_player/core/models/song.dart';
 import 'package:music_player/core/services/media_library_providers.dart';
+import 'package:music_player/core/services/wrap_stats_service.dart';
 
 Song _song({
   required String id,
@@ -163,5 +164,99 @@ void main() {
         expect(result.map((s) => s.id), ['2', '1', '3']);
       },
     );
+
+    test('playCount sortira padajoče po playStats, brez vnosa šteje kot 0', () {
+      final playStats = {
+        '1': const SongPlayStat(playCount: 5, listenedMs: 0),
+        '3': const SongPlayStat(playCount: 20, listenedMs: 0),
+        // '2' namerno izpuščen - mora šteti kot 0, ne vreči napake.
+      };
+      final result = sortLibrarySongs(
+        unsorted,
+        SongSortOption.playCount,
+        playStats: playStats,
+      );
+      expect(result.map((s) => s.id), ['3', '1', '2']);
+    });
+
+    test('listeningTime sortira padajoče po listenedMs, ne po playCount', () {
+      final playStats = {
+        '1': const SongPlayStat(playCount: 100, listenedMs: 1000),
+        '2': const SongPlayStat(playCount: 1, listenedMs: 500000),
+        '3': const SongPlayStat(playCount: 1, listenedMs: 2000),
+      };
+      final result = sortLibrarySongs(
+        unsorted,
+        SongSortOption.listeningTime,
+        playStats: playStats,
+      );
+      expect(result.map((s) => s.id), ['2', '3', '1']);
+    });
+
+    test('playCount izenačenje se razreši po naslovu (case-insensitive)', () {
+      final playStats = {
+        '1': const SongPlayStat(playCount: 5, listenedMs: 0),
+        '2': const SongPlayStat(playCount: 5, listenedMs: 0),
+        '3': const SongPlayStat(playCount: 5, listenedMs: 0),
+      };
+      final result = sortLibrarySongs(
+        unsorted,
+        SongSortOption.playCount,
+        playStats: playStats,
+      );
+      expect(result.map((s) => s.id), ['2', '1', '3']);
+    });
+  });
+
+  group('sortGroupNames', () {
+    final groups = <String, List<Song>>{
+      'The Killers': [
+        _song(id: '1', title: 'a', artist: 'The Killers', album: 'x'),
+        _song(id: '2', title: 'b', artist: 'The Killers', album: 'x'),
+      ],
+      'Franz Ferdinand': [
+        _song(id: '3', title: 'c', artist: 'Franz Ferdinand', album: 'x'),
+      ],
+      'ABBA': [_song(id: '4', title: 'd', artist: 'ABBA', album: 'x')],
+    };
+
+    test('alphabetical sortira imena skupin, case-insensitive', () {
+      final result = sortGroupNames(groups, GroupSortOption.alphabetical, {});
+      expect(result, ['ABBA', 'Franz Ferdinand', 'The Killers']);
+    });
+
+    test('playCount sešteje metriko čez vse pesmi skupine, padajoče', () {
+      final playStats = {
+        '1': const SongPlayStat(playCount: 3, listenedMs: 0),
+        '2': const SongPlayStat(playCount: 4, listenedMs: 0),
+        '3': const SongPlayStat(playCount: 1, listenedMs: 0),
+        // '4' (ABBA) brez vnosa - šteje kot 0.
+      };
+      final result = sortGroupNames(
+        groups,
+        GroupSortOption.playCount,
+        playStats,
+      );
+      // The Killers: 3+4=7, Franz Ferdinand: 1, ABBA: 0.
+      expect(result, ['The Killers', 'Franz Ferdinand', 'ABBA']);
+    });
+
+    test('listeningTime sešteje listenedMs čez vse pesmi skupine', () {
+      final playStats = {
+        '3': const SongPlayStat(playCount: 0, listenedMs: 500000),
+        '1': const SongPlayStat(playCount: 0, listenedMs: 1000),
+      };
+      final result = sortGroupNames(
+        groups,
+        GroupSortOption.listeningTime,
+        playStats,
+      );
+      expect(result.first, 'Franz Ferdinand');
+    });
+
+    test('izenačenje (vključno z 0) se razreši abecedno', () {
+      final result = sortGroupNames(groups, GroupSortOption.playCount, {});
+      expect(result, ['ABBA', 'Franz Ferdinand', 'The Killers']);
+    });
   });
 }

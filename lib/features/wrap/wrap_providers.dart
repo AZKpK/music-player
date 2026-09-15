@@ -41,13 +41,14 @@ final wrapPeriodBoundsProvider = Provider<WrapPeriodBounds>((ref) {
 /// Zapisi predvajanja znotraj trenutnega (odprtega) obdobja - za "live"
 /// prikaz na wrap_screen.dart (glej spec "Trigger": odpiranje zaslona vedno
 /// samo prikaže trenutne statistike, brez pisanja).
-final currentPeriodPlayHistoryProvider =
-    StreamProvider<List<PlayHistoryEntry>>((ref) {
-      final bounds = ref.watch(wrapPeriodBoundsProvider);
-      return ref
-          .watch(appDatabaseProvider)
-          .watchPlayHistoryEntries(from: bounds.currentPeriodStart);
-    });
+final currentPeriodPlayHistoryProvider = StreamProvider<List<PlayHistoryEntry>>(
+  (ref) {
+    final bounds = ref.watch(wrapPeriodBoundsProvider);
+    return ref
+        .watch(appDatabaseProvider)
+        .watchPlayHistoryEntries(from: bounds.currentPeriodStart);
+  },
+);
 
 /// `songId -> Song` zemljevid iz trenutne knjižnice, za spajanje s
 /// `PlayHistoryEntries` v `computeWrapStats` (glej spec "Aggregation").
@@ -64,6 +65,12 @@ final wrapSongSortOptionProvider = StateProvider<WrapSongSortOption>(
   (ref) => WrapSongSortOption.playCount,
 );
 
+/// Največ toliko vnosov prikaže wrap_screen.dart v "Top pesmi"/"Top
+/// izvajalci"/"Top albumi" (glej docs/faza2-wrap/intent3.md) - namerno samo
+/// v [wrapStatsProvider], ne v `WrapPlaylistGenerator`, ki potrebuje do 100
+/// pesmi za Top-100 playliste.
+const kWrapTopEntriesDisplayLimit = 10;
+
 /// Trenutne (odprto obdobje) Wrap statistike, prikazane na wrap_screen.dart.
 final wrapStatsProvider = Provider<AsyncValue<WrapStats>>((ref) {
   final entriesAsync = ref.watch(currentPeriodPlayHistoryProvider);
@@ -77,6 +84,7 @@ final wrapStatsProvider = Provider<AsyncValue<WrapStats>>((ref) {
       libraryById: libraryById,
       genreEnabled: genreEnabled,
       songSortOption: songSortOption,
+      maxTopEntries: kWrapTopEntriesDisplayLimit,
     ),
   );
 });

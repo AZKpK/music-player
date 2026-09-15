@@ -109,10 +109,7 @@ void main() {
       );
 
       expect(stats.topSongs.map((s) => s.song.id).toList(), ['a', 'b']);
-      expect(stats.topArtists.map((a) => a.name).toList(), [
-        'Apple',
-        'Zebra',
-      ]);
+      expect(stats.topArtists.map((a) => a.name).toList(), ['Apple', 'Zebra']);
       expect(stats.topAlbums.map((a) => a.name).toList(), ['Alpha', 'Zeta']);
     });
 
@@ -148,17 +145,20 @@ void main() {
       expect(stats.totalListened, const Duration(milliseconds: 300000));
     });
 
-    test('genre disabled leaves topGenre null even with genre data present', () {
-      final song = _song('a', genre: 'Rock');
-      final stats = computeWrapStats(
-        entries: [
-          _entry(songId: 'a', msListened: 300000, trackDurationMs: 300000),
-        ],
-        libraryById: {'a': song},
-      );
+    test(
+      'genre disabled leaves topGenre null even with genre data present',
+      () {
+        final song = _song('a', genre: 'Rock');
+        final stats = computeWrapStats(
+          entries: [
+            _entry(songId: 'a', msListened: 300000, trackDurationMs: 300000),
+          ],
+          libraryById: {'a': song},
+        );
 
-      expect(stats.topGenre, isNull);
-    });
+        expect(stats.topGenre, isNull);
+      },
+    );
 
     test('genre enabled picks the most-played genre among counted plays', () {
       final rockSong = _song('a', genre: 'Rock');
@@ -265,10 +265,7 @@ void main() {
         libraryById: {'short': shortTrack, 'long': longTrack},
       );
 
-      expect(stats.topSongs.map((s) => s.song.id).toList(), [
-        'short',
-        'long',
-      ]);
+      expect(stats.topSongs.map((s) => s.song.id).toList(), ['short', 'long']);
     });
 
     test('ties in listenedMs are broken alphabetically by title', () {
@@ -284,6 +281,96 @@ void main() {
       );
 
       expect(stats.topSongs.map((s) => s.song.id).toList(), ['a', 'b']);
+    });
+  });
+
+  group('computeWrapStats maxTopEntries', () {
+    test('null (default) keeps every entry, unbounded', () {
+      final entries = [
+        for (var i = 0; i < 12; i++)
+          _entry(songId: 's$i', msListened: 300000, trackDurationMs: 300000),
+      ];
+      final libraryById = {
+        for (var i = 0; i < 12; i++) 's$i': _song('s$i', artist: 'a$i'),
+      };
+      final stats = computeWrapStats(
+        entries: entries,
+        libraryById: libraryById,
+      );
+
+      expect(stats.topSongs, hasLength(12));
+      expect(stats.topArtists, hasLength(12));
+      expect(stats.topAlbums, hasLength(1));
+    });
+
+    test('caps topSongs/topArtists/topAlbums to the given limit, keeping '
+        'the highest-ranked entries', () {
+      final entries = [
+        for (var i = 0; i < 12; i++)
+          for (var p = 0; p < 12 - i; p++)
+            _entry(songId: 's$i', msListened: 300000, trackDurationMs: 300000),
+      ];
+      final libraryById = {
+        for (var i = 0; i < 12; i++) 's$i': _song('s$i', artist: 'a$i'),
+      };
+      final stats = computeWrapStats(
+        entries: entries,
+        libraryById: libraryById,
+        maxTopEntries: 10,
+      );
+
+      expect(stats.topSongs, hasLength(10));
+      expect(stats.topArtists, hasLength(10));
+      expect(stats.topSongs.map((s) => s.song.id), [
+        for (var i = 0; i < 10; i++) 's$i',
+      ]);
+    });
+
+    test('a limit larger than the actual entry count is a no-op', () {
+      final song = _song('a');
+      final stats = computeWrapStats(
+        entries: [
+          _entry(songId: 'a', msListened: 300000, trackDurationMs: 300000),
+        ],
+        libraryById: {'a': song},
+        maxTopEntries: 10,
+      );
+
+      expect(stats.topSongs, hasLength(1));
+    });
+  });
+
+  group('computeSongPlayStats', () {
+    test('empty history returns an empty map', () {
+      expect(computeSongPlayStats([]), isEmpty);
+    });
+
+    test('sums playCount and listenedMs across counted plays for a song', () {
+      final stats = computeSongPlayStats([
+        _entry(songId: 'a', msListened: 150000, trackDurationMs: 300000),
+        _entry(songId: 'a', msListened: 300000, trackDurationMs: 300000),
+      ]);
+
+      expect(stats['a']!.playCount, 2);
+      expect(stats['a']!.listenedMs, 450000);
+    });
+
+    test('uncounted plays (below threshold) are excluded, same gate as '
+        'computeWrapStats', () {
+      final stats = computeSongPlayStats([
+        _entry(songId: 'a', msListened: 1000, trackDurationMs: 300000),
+      ]);
+
+      expect(stats.containsKey('a'), isFalse);
+    });
+
+    test('is not scoped to a wrap period - just aggregates whatever entries '
+        'it is given', () {
+      final stats = computeSongPlayStats([
+        _entry(songId: 'a', msListened: 300000, trackDurationMs: 300000),
+      ]);
+
+      expect(stats['a']!.playCount, 1);
     });
   });
 

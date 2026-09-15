@@ -20,13 +20,24 @@ class PlaylistsTab extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final playlistsAsync = ref.watch(playlistsProvider);
+    final sortOption = ref.watch(playlistSortProvider);
+    final playlistStats = ref.watch(playlistPlayStatsProvider);
 
     return Stack(
       children: [
         playlistsAsync.when(
           loading: () => const Center(child: CircularProgressIndicator()),
           error: (error, _) => Center(child: Text('$error')),
-          data: (playlists) {
+          data: (unsortedPlaylists) {
+            // "Priljubljene pesmi" ostane pripeta na vrhu, ne glede na
+            // izbrano sortiranje - glej docs/faza2-wrap/intent3.md
+            // "Decisions" (ni `Playlist` vrstica, zato je ni mogoče
+            // agregirati enako kot ostale).
+            final playlists = sortPlaylists(
+              unsortedPlaylists,
+              sortOption,
+              playlistStats,
+            );
             return ListView.builder(
               padding: const EdgeInsets.only(bottom: 88),
               itemCount: playlists.length + 1,

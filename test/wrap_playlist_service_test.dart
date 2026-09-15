@@ -24,10 +24,7 @@ void main() {
     });
 
     test('one collision appends (1)', () {
-      expect(
-        resolvePlaylistName('Wrap 2026', {'Wrap 2026'}),
-        'Wrap 2026 (1)',
-      );
+      expect(resolvePlaylistName('Wrap 2026', {'Wrap 2026'}), 'Wrap 2026 (1)');
     });
 
     test('multiple collisions pick the first free counter', () {
@@ -48,30 +45,36 @@ void main() {
     setUp(() => database = AppDatabase.forTesting(NativeDatabase.memory()));
     tearDown(() => database.close());
 
-    test('creates a playlist named after the year with the given songs', () async {
-      await generateYearlySnapshotPlaylist(
-        database: database,
-        year: 2026,
-        topSongs: [_song('a'), _song('b')],
-      );
+    test(
+      'creates a playlist named after the year with the given songs',
+      () async {
+        await generateYearlySnapshotPlaylist(
+          database: database,
+          year: 2026,
+          topSongs: [_song('a'), _song('b')],
+        );
 
-      final playlist = await database.findPlaylistByName('Wrap 2026');
-      expect(playlist, isNotNull);
-      final songs = await database.watchPlaylistSongs(playlist!.id).first;
-      expect(songs.map((s) => s.songId).toList(), ['a', 'b']);
-    });
+        final playlist = await database.findPlaylistByName('Wrap 2026');
+        expect(playlist, isNotNull);
+        final songs = await database.watchPlaylistSongs(playlist!.id).first;
+        expect(songs.map((s) => s.songId).toList(), ['a', 'b']);
+      },
+    );
 
-    test('suffixes the name when a playlist with that name already exists', () async {
-      await database.createPlaylist('Wrap 2026');
+    test(
+      'suffixes the name when a playlist with that name already exists',
+      () async {
+        await database.createPlaylist('Wrap 2026');
 
-      await generateYearlySnapshotPlaylist(
-        database: database,
-        year: 2026,
-        topSongs: [_song('a')],
-      );
+        await generateYearlySnapshotPlaylist(
+          database: database,
+          year: 2026,
+          topSongs: [_song('a')],
+        );
 
-      expect(await database.findPlaylistByName('Wrap 2026 (1)'), isNotNull);
-    });
+        expect(await database.findPlaylistByName('Wrap 2026 (1)'), isNotNull);
+      },
+    );
 
     test('caps the playlist at the top-100 length', () async {
       final songs = [for (var i = 0; i < 150; i++) _song('$i')];
@@ -95,10 +98,7 @@ void main() {
     tearDown(() => database.close());
 
     test('creates the playlist when none exists yet', () async {
-      await generateAllTimePlaylist(
-        database: database,
-        topSongs: [_song('a')],
-      );
+      await generateAllTimePlaylist(database: database, topSongs: [_song('a')]);
 
       expect(await database.findPlaylistByName('Wrap All-Time'), isNotNull);
     });

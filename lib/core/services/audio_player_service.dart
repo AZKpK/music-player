@@ -231,7 +231,10 @@ bool isLoopOneRepeat({
 /// odprtega segmenta (`null`, če player ni aktiven). Ločeno od
 /// `_lastKnownPosition`, ki ostaja izključno za zaznavo loop-one ponovitev.
 class ListenedAccumulator {
-  const ListenedAccumulator({this.total = Duration.zero, this.activeSegmentStart});
+  const ListenedAccumulator({
+    this.total = Duration.zero,
+    this.activeSegmentStart,
+  });
 
   final Duration total;
   final DateTime? activeSegmentStart;
@@ -789,7 +792,10 @@ class AudioPlayerHandler extends BaseAudioHandler
   void _handleCurrentIndexChanged(int? index) {
     if (index == null || index < 0 || index >= queue.value.length) return;
     final incoming = queue.value[index];
-    if (isRealSongTransition(outgoing: mediaItem.valueOrNull, incoming: incoming)) {
+    if (isRealSongTransition(
+      outgoing: mediaItem.valueOrNull,
+      incoming: incoming,
+    )) {
       _recordPlay(mediaItem.valueOrNull, _consumeListenedDuration());
     }
     _lastKnownPosition = Duration.zero;

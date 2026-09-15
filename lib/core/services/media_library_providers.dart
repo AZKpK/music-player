@@ -5,6 +5,7 @@ import '../models/song.dart';
 import 'audio_player_providers.dart';
 import 'media_library_service.dart';
 import 'playlist_providers.dart';
+import 'wrap_stats_service.dart';
 
 final mediaLibraryServiceProvider = Provider<MediaLibraryService>((ref) {
   return MediaLibraryService();
@@ -215,7 +216,18 @@ Map<String, List<Song>> filterLibraryGroups(
 }
 
 /// Sort opcije za zavihek "Vse pesmi" (glej `library_screen.dart` sort meni).
-enum SongSortOption { title, artist, album, dateAddedDesc, duration }
+/// `playCount`/`listeningTime` "kopirata" isto metriko kot Wrap zaslon (glej
+/// docs/faza2-wrap/intent3.md), le da all-time namesto omejeno na eno wrap
+/// obdobje - glej [songPlayStatsProvider].
+enum SongSortOption {
+  title,
+  artist,
+  album,
+  dateAddedDesc,
+  duration,
+  playCount,
+  listeningTime,
+}
 
 /// Izbrana sort opcija za "Vse pesmi", privzeto po naslovu (enako kot prej,
 /// ko sortiranje še ni bilo izbirno - MediaStore query je že sortiran po
@@ -229,14 +241,23 @@ final librarySortProvider = StateProvider<SongSortOption>(
 /// posamezno testabilen - glej [sortLibrarySongs].
 final displayedLibrarySongsProvider = Provider<AsyncValue<List<Song>>>((ref) {
   final sortOption = ref.watch(librarySortProvider);
+  final playStats = ref.watch(songPlayStatsProvider);
   return ref
       .watch(filteredLibrarySongsProvider)
-      .whenData((songs) => sortLibrarySongs(songs, sortOption));
+      .whenData(
+        (songs) => sortLibrarySongs(songs, sortOption, playStats: playStats),
+      );
 });
 
 /// Čista sort funkcija za [displayedLibrarySongsProvider] - glej
-/// [filterLibrarySongs] za enak razlog ločitve od providerja.
-List<Song> sortLibrarySongs(List<Song> songs, SongSortOption option) {
+/// [filterLibrarySongs] za enak razlog ločitve od providerja. `playStats` je
+/// potreben samo za `playCount`/`listeningTime` (privzeto prazen, ker ostale
+/// opcije nanj ne vplivajo).
+List<Song> sortLibrarySongs(
+  List<Song> songs,
+  SongSortOption option, {
+  Map<String, SongPlayStat> playStats = const {},
+}) {
   final sorted = [...songs];
   // Case-insensitive (`String.compareTo` bi sicer dal vse velike črke pred
   // vse male - npr. "boy" bi pristal za vsemi "B..." naslovi namesto zraven).
@@ -262,8 +283,65 @@ List<Song> sortLibrarySongs(List<Song> songs, SongSortOption option) {
         final durationB = b.duration ?? Duration.zero;
         return durationA.compareTo(durationB);
       });
+    case SongSortOption.playCount:
+    case SongSortOption.listeningTime:
+      int metricFor(Song song) {
+        final stat = playStats[song.id];
+        if (stat == null) return 0;
+        return option == SongSortOption.listeningTime
+            ? stat.listenedMs
+            : stat.playCount;
+      }
+
+      sorted.sort((a, b) {
+        final cmp = metricFor(b).compareTo(metricFor(a));
+        if (cmp != 0) return cmp;
+        return a.normalizedTitle.compareTo(b.normalizedTitle);
+      });
   }
   return sorted;
+}
+
+/// Izbrana sort opcija za zavihek "Izvajalci" (glej `sortGroupNames`),
+/// privzeto abecedno - "Albumi" namerno nima svojega, glej
+/// docs/faza2-wrap/intent3.md "Decisions".
+final artistSortProvider = StateProvider<GroupSortOption>(
+  (ref) => GroupSortOption.alphabetical,
+);
+
+/// Čista sort funkcija za imena skupin (izvajalci) v `_GroupedTab`
+/// (library_screen.dart) - `playCount`/`listeningTime` je vsota metrike čez
+/// vse pesmi te skupine (glej [songPlayStatsProvider]).
+List<String> sortGroupNames(
+  Map<String, List<Song>> groups,
+  GroupSortOption option,
+  Map<String, SongPlayStat> playStats,
+) {
+  final names = groups.keys.toList();
+  switch (option) {
+    case GroupSortOption.alphabetical:
+      names.sort((a, b) => a.toLowerCase().compareTo(b.toLowerCase()));
+    case GroupSortOption.playCount:
+    case GroupSortOption.listeningTime:
+      int metricFor(String name) {
+        var total = 0;
+        for (final song in groups[name]!) {
+          final stat = playStats[song.id];
+          if (stat == null) continue;
+          total += option == GroupSortOption.listeningTime
+              ? stat.listenedMs
+              : stat.playCount;
+        }
+        return total;
+      }
+
+      names.sort((a, b) {
+        final cmp = metricFor(b).compareTo(metricFor(a));
+        if (cmp != 0) return cmp;
+        return a.toLowerCase().compareTo(b.toLowerCase());
+      });
+  }
+  return names;
 }
 
 /// Trenutno predvajana pesem kot [Song] (za "Priljubljena"/"Uredi
