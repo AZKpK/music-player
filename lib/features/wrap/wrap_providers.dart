@@ -56,17 +56,27 @@ final wrapLibraryByIdProvider = Provider<Map<String, Song>>((ref) {
   return {for (final song in songs) song.id: song};
 });
 
+/// Izbrani kriterij razvrščanja `topSongs` na wrap_screen.dart (glej
+/// `WrapSongSortOption`) - session-only (ne shranjen v `WrapSettings`, glej
+/// spec-wrap2.md "Sort-option persistence"), zato se ob vsakem zagonu app-a
+/// ponastavi na privzeto `playCount`.
+final wrapSongSortOptionProvider = StateProvider<WrapSongSortOption>(
+  (ref) => WrapSongSortOption.playCount,
+);
+
 /// Trenutne (odprto obdobje) Wrap statistike, prikazane na wrap_screen.dart.
 final wrapStatsProvider = Provider<AsyncValue<WrapStats>>((ref) {
   final entriesAsync = ref.watch(currentPeriodPlayHistoryProvider);
   final libraryById = ref.watch(wrapLibraryByIdProvider);
   final genreEnabled = ref.watch(wrapGenreEnabledProvider);
+  final songSortOption = ref.watch(wrapSongSortOptionProvider);
 
   return entriesAsync.whenData(
     (entries) => computeWrapStats(
       entries: entries,
       libraryById: libraryById,
       genreEnabled: genreEnabled,
+      songSortOption: songSortOption,
     ),
   );
 });
