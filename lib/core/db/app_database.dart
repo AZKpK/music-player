@@ -74,13 +74,56 @@ class GroupArtworks extends Table {
   Set<Column> get primaryKey => {groupType, groupKey};
 }
 
-@DriftDatabase(tables: [Playlists, PlaylistSongs, SongOverrides, GroupArtworks])
+/// One recorded play of a song. Deliberately thin — unlike `PlaylistSongs`,
+/// which duplicates title/artist/album because MediaStore ids aren't a
+/// stable long-term reference, play events are far more numerous than
+/// playlist rows, so metadata is resolved by joining the current library
+/// at read time instead of being copied per row.
+@TableIndex(name: 'play_history_played_at', columns: {#playedAt})
+class PlayHistoryEntries extends Table {
+  IntColumn get id => integer().autoIncrement()();
+  TextColumn get songId => text()();
+  DateTimeColumn get playedAt => dateTime()();
+  IntColumn get msListened => integer()();
+  // Captured at play time (not re-read from the library later), so the
+  // "was this a countable play" rule stays correct even if a file is later
+  // deleted/replaced.
+  IntColumn get trackDurationMs => integer()();
+}
+
+/// Single-row table for wrap-related settings. Reuses drift (already a
+/// dependency, already the pattern for local app state) instead of adding
+/// `shared_preferences` for two small values.
+class WrapSettings extends Table {
+  IntColumn get id => integer()();
+  BoolColumn get genreEnabled => boolean().withDefault(const Constant(false))();
+  IntColumn get resetMonth => integer().withDefault(const Constant(1))();
+  IntColumn get resetDay => integer().withDefault(const Constant(1))();
+  // Last time the yearly snapshot/all-time playlists were (re)generated -
+  // compared against the reset-date boundary to decide whether opening the
+  // wrap screen should trigger regeneration.
+  DateTimeColumn get lastGeneratedAt => dateTime().nullable()();
+
+  @override
+  Set<Column> get primaryKey => {id};
+}
+
+@DriftDatabase(
+  tables: [
+    Playlists,
+    PlaylistSongs,
+    SongOverrides,
+    GroupArtworks,
+    PlayHistoryEntries,
+    WrapSettings,
+  ],
+)
 class AppDatabase extends _$AppDatabase {
   AppDatabase() : super(_openConnection());
   AppDatabase.forTesting(super.connection);
 
   @override
-  int get schemaVersion => 4;
+  int get schemaVersion => 5;
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
@@ -97,6 +140,10 @@ class AppDatabase extends _$AppDatabase {
           'CREATE INDEX playlist_songs_playlist_position '
           'ON playlist_songs (playlist_id, position)',
         );
+      }
+      if (from < 5) {
+        await m.createTable(playHistoryEntries);
+        await m.createTable(wrapSettings);
       }
     },
   );

@@ -1691,6 +1691,728 @@ class GroupArtworksCompanion extends UpdateCompanion<GroupArtwork> {
   }
 }
 
+class $PlayHistoryEntriesTable extends PlayHistoryEntries
+    with TableInfo<$PlayHistoryEntriesTable, PlayHistoryEntry> {
+  @override
+  final GeneratedDatabase attachedDatabase;
+  final String? _alias;
+  $PlayHistoryEntriesTable(this.attachedDatabase, [this._alias]);
+  static const VerificationMeta _idMeta = const VerificationMeta('id');
+  @override
+  late final GeneratedColumn<int> id = GeneratedColumn<int>(
+    'id',
+    aliasedName,
+    false,
+    hasAutoIncrement: true,
+    type: DriftSqlType.int,
+    requiredDuringInsert: false,
+    defaultConstraints: GeneratedColumn.constraintIsAlways(
+      'PRIMARY KEY AUTOINCREMENT',
+    ),
+  );
+  static const VerificationMeta _songIdMeta = const VerificationMeta('songId');
+  @override
+  late final GeneratedColumn<String> songId = GeneratedColumn<String>(
+    'song_id',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _playedAtMeta = const VerificationMeta(
+    'playedAt',
+  );
+  @override
+  late final GeneratedColumn<DateTime> playedAt = GeneratedColumn<DateTime>(
+    'played_at',
+    aliasedName,
+    false,
+    type: DriftSqlType.dateTime,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _msListenedMeta = const VerificationMeta(
+    'msListened',
+  );
+  @override
+  late final GeneratedColumn<int> msListened = GeneratedColumn<int>(
+    'ms_listened',
+    aliasedName,
+    false,
+    type: DriftSqlType.int,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _trackDurationMsMeta = const VerificationMeta(
+    'trackDurationMs',
+  );
+  @override
+  late final GeneratedColumn<int> trackDurationMs = GeneratedColumn<int>(
+    'track_duration_ms',
+    aliasedName,
+    false,
+    type: DriftSqlType.int,
+    requiredDuringInsert: true,
+  );
+  @override
+  List<GeneratedColumn> get $columns => [
+    id,
+    songId,
+    playedAt,
+    msListened,
+    trackDurationMs,
+  ];
+  @override
+  String get aliasedName => _alias ?? actualTableName;
+  @override
+  String get actualTableName => $name;
+  static const String $name = 'play_history_entries';
+  @override
+  VerificationContext validateIntegrity(
+    Insertable<PlayHistoryEntry> instance, {
+    bool isInserting = false,
+  }) {
+    final context = VerificationContext();
+    final data = instance.toColumns(true);
+    if (data.containsKey('id')) {
+      context.handle(_idMeta, id.isAcceptableOrUnknown(data['id']!, _idMeta));
+    }
+    if (data.containsKey('song_id')) {
+      context.handle(
+        _songIdMeta,
+        songId.isAcceptableOrUnknown(data['song_id']!, _songIdMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_songIdMeta);
+    }
+    if (data.containsKey('played_at')) {
+      context.handle(
+        _playedAtMeta,
+        playedAt.isAcceptableOrUnknown(data['played_at']!, _playedAtMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_playedAtMeta);
+    }
+    if (data.containsKey('ms_listened')) {
+      context.handle(
+        _msListenedMeta,
+        msListened.isAcceptableOrUnknown(data['ms_listened']!, _msListenedMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_msListenedMeta);
+    }
+    if (data.containsKey('track_duration_ms')) {
+      context.handle(
+        _trackDurationMsMeta,
+        trackDurationMs.isAcceptableOrUnknown(
+          data['track_duration_ms']!,
+          _trackDurationMsMeta,
+        ),
+      );
+    } else if (isInserting) {
+      context.missing(_trackDurationMsMeta);
+    }
+    return context;
+  }
+
+  @override
+  Set<GeneratedColumn> get $primaryKey => {id};
+  @override
+  PlayHistoryEntry map(Map<String, dynamic> data, {String? tablePrefix}) {
+    final effectivePrefix = tablePrefix != null ? '$tablePrefix.' : '';
+    return PlayHistoryEntry(
+      id: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}id'],
+      )!,
+      songId: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}song_id'],
+      )!,
+      playedAt: attachedDatabase.typeMapping.read(
+        DriftSqlType.dateTime,
+        data['${effectivePrefix}played_at'],
+      )!,
+      msListened: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}ms_listened'],
+      )!,
+      trackDurationMs: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}track_duration_ms'],
+      )!,
+    );
+  }
+
+  @override
+  $PlayHistoryEntriesTable createAlias(String alias) {
+    return $PlayHistoryEntriesTable(attachedDatabase, alias);
+  }
+}
+
+class PlayHistoryEntry extends DataClass
+    implements Insertable<PlayHistoryEntry> {
+  final int id;
+  final String songId;
+  final DateTime playedAt;
+  final int msListened;
+  final int trackDurationMs;
+  const PlayHistoryEntry({
+    required this.id,
+    required this.songId,
+    required this.playedAt,
+    required this.msListened,
+    required this.trackDurationMs,
+  });
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    map['id'] = Variable<int>(id);
+    map['song_id'] = Variable<String>(songId);
+    map['played_at'] = Variable<DateTime>(playedAt);
+    map['ms_listened'] = Variable<int>(msListened);
+    map['track_duration_ms'] = Variable<int>(trackDurationMs);
+    return map;
+  }
+
+  PlayHistoryEntriesCompanion toCompanion(bool nullToAbsent) {
+    return PlayHistoryEntriesCompanion(
+      id: Value(id),
+      songId: Value(songId),
+      playedAt: Value(playedAt),
+      msListened: Value(msListened),
+      trackDurationMs: Value(trackDurationMs),
+    );
+  }
+
+  factory PlayHistoryEntry.fromJson(
+    Map<String, dynamic> json, {
+    ValueSerializer? serializer,
+  }) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return PlayHistoryEntry(
+      id: serializer.fromJson<int>(json['id']),
+      songId: serializer.fromJson<String>(json['songId']),
+      playedAt: serializer.fromJson<DateTime>(json['playedAt']),
+      msListened: serializer.fromJson<int>(json['msListened']),
+      trackDurationMs: serializer.fromJson<int>(json['trackDurationMs']),
+    );
+  }
+  @override
+  Map<String, dynamic> toJson({ValueSerializer? serializer}) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return <String, dynamic>{
+      'id': serializer.toJson<int>(id),
+      'songId': serializer.toJson<String>(songId),
+      'playedAt': serializer.toJson<DateTime>(playedAt),
+      'msListened': serializer.toJson<int>(msListened),
+      'trackDurationMs': serializer.toJson<int>(trackDurationMs),
+    };
+  }
+
+  PlayHistoryEntry copyWith({
+    int? id,
+    String? songId,
+    DateTime? playedAt,
+    int? msListened,
+    int? trackDurationMs,
+  }) => PlayHistoryEntry(
+    id: id ?? this.id,
+    songId: songId ?? this.songId,
+    playedAt: playedAt ?? this.playedAt,
+    msListened: msListened ?? this.msListened,
+    trackDurationMs: trackDurationMs ?? this.trackDurationMs,
+  );
+  PlayHistoryEntry copyWithCompanion(PlayHistoryEntriesCompanion data) {
+    return PlayHistoryEntry(
+      id: data.id.present ? data.id.value : this.id,
+      songId: data.songId.present ? data.songId.value : this.songId,
+      playedAt: data.playedAt.present ? data.playedAt.value : this.playedAt,
+      msListened: data.msListened.present
+          ? data.msListened.value
+          : this.msListened,
+      trackDurationMs: data.trackDurationMs.present
+          ? data.trackDurationMs.value
+          : this.trackDurationMs,
+    );
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('PlayHistoryEntry(')
+          ..write('id: $id, ')
+          ..write('songId: $songId, ')
+          ..write('playedAt: $playedAt, ')
+          ..write('msListened: $msListened, ')
+          ..write('trackDurationMs: $trackDurationMs')
+          ..write(')'))
+        .toString();
+  }
+
+  @override
+  int get hashCode =>
+      Object.hash(id, songId, playedAt, msListened, trackDurationMs);
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      (other is PlayHistoryEntry &&
+          other.id == this.id &&
+          other.songId == this.songId &&
+          other.playedAt == this.playedAt &&
+          other.msListened == this.msListened &&
+          other.trackDurationMs == this.trackDurationMs);
+}
+
+class PlayHistoryEntriesCompanion extends UpdateCompanion<PlayHistoryEntry> {
+  final Value<int> id;
+  final Value<String> songId;
+  final Value<DateTime> playedAt;
+  final Value<int> msListened;
+  final Value<int> trackDurationMs;
+  const PlayHistoryEntriesCompanion({
+    this.id = const Value.absent(),
+    this.songId = const Value.absent(),
+    this.playedAt = const Value.absent(),
+    this.msListened = const Value.absent(),
+    this.trackDurationMs = const Value.absent(),
+  });
+  PlayHistoryEntriesCompanion.insert({
+    this.id = const Value.absent(),
+    required String songId,
+    required DateTime playedAt,
+    required int msListened,
+    required int trackDurationMs,
+  }) : songId = Value(songId),
+       playedAt = Value(playedAt),
+       msListened = Value(msListened),
+       trackDurationMs = Value(trackDurationMs);
+  static Insertable<PlayHistoryEntry> custom({
+    Expression<int>? id,
+    Expression<String>? songId,
+    Expression<DateTime>? playedAt,
+    Expression<int>? msListened,
+    Expression<int>? trackDurationMs,
+  }) {
+    return RawValuesInsertable({
+      if (id != null) 'id': id,
+      if (songId != null) 'song_id': songId,
+      if (playedAt != null) 'played_at': playedAt,
+      if (msListened != null) 'ms_listened': msListened,
+      if (trackDurationMs != null) 'track_duration_ms': trackDurationMs,
+    });
+  }
+
+  PlayHistoryEntriesCompanion copyWith({
+    Value<int>? id,
+    Value<String>? songId,
+    Value<DateTime>? playedAt,
+    Value<int>? msListened,
+    Value<int>? trackDurationMs,
+  }) {
+    return PlayHistoryEntriesCompanion(
+      id: id ?? this.id,
+      songId: songId ?? this.songId,
+      playedAt: playedAt ?? this.playedAt,
+      msListened: msListened ?? this.msListened,
+      trackDurationMs: trackDurationMs ?? this.trackDurationMs,
+    );
+  }
+
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    if (id.present) {
+      map['id'] = Variable<int>(id.value);
+    }
+    if (songId.present) {
+      map['song_id'] = Variable<String>(songId.value);
+    }
+    if (playedAt.present) {
+      map['played_at'] = Variable<DateTime>(playedAt.value);
+    }
+    if (msListened.present) {
+      map['ms_listened'] = Variable<int>(msListened.value);
+    }
+    if (trackDurationMs.present) {
+      map['track_duration_ms'] = Variable<int>(trackDurationMs.value);
+    }
+    return map;
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('PlayHistoryEntriesCompanion(')
+          ..write('id: $id, ')
+          ..write('songId: $songId, ')
+          ..write('playedAt: $playedAt, ')
+          ..write('msListened: $msListened, ')
+          ..write('trackDurationMs: $trackDurationMs')
+          ..write(')'))
+        .toString();
+  }
+}
+
+class $WrapSettingsTable extends WrapSettings
+    with TableInfo<$WrapSettingsTable, WrapSetting> {
+  @override
+  final GeneratedDatabase attachedDatabase;
+  final String? _alias;
+  $WrapSettingsTable(this.attachedDatabase, [this._alias]);
+  static const VerificationMeta _idMeta = const VerificationMeta('id');
+  @override
+  late final GeneratedColumn<int> id = GeneratedColumn<int>(
+    'id',
+    aliasedName,
+    false,
+    type: DriftSqlType.int,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _genreEnabledMeta = const VerificationMeta(
+    'genreEnabled',
+  );
+  @override
+  late final GeneratedColumn<bool> genreEnabled = GeneratedColumn<bool>(
+    'genre_enabled',
+    aliasedName,
+    false,
+    type: DriftSqlType.bool,
+    requiredDuringInsert: false,
+    defaultConstraints: GeneratedColumn.constraintIsAlways(
+      'CHECK ("genre_enabled" IN (0, 1))',
+    ),
+    defaultValue: const Constant(false),
+  );
+  static const VerificationMeta _resetMonthMeta = const VerificationMeta(
+    'resetMonth',
+  );
+  @override
+  late final GeneratedColumn<int> resetMonth = GeneratedColumn<int>(
+    'reset_month',
+    aliasedName,
+    false,
+    type: DriftSqlType.int,
+    requiredDuringInsert: false,
+    defaultValue: const Constant(1),
+  );
+  static const VerificationMeta _resetDayMeta = const VerificationMeta(
+    'resetDay',
+  );
+  @override
+  late final GeneratedColumn<int> resetDay = GeneratedColumn<int>(
+    'reset_day',
+    aliasedName,
+    false,
+    type: DriftSqlType.int,
+    requiredDuringInsert: false,
+    defaultValue: const Constant(1),
+  );
+  static const VerificationMeta _lastGeneratedAtMeta = const VerificationMeta(
+    'lastGeneratedAt',
+  );
+  @override
+  late final GeneratedColumn<DateTime> lastGeneratedAt =
+      GeneratedColumn<DateTime>(
+        'last_generated_at',
+        aliasedName,
+        true,
+        type: DriftSqlType.dateTime,
+        requiredDuringInsert: false,
+      );
+  @override
+  List<GeneratedColumn> get $columns => [
+    id,
+    genreEnabled,
+    resetMonth,
+    resetDay,
+    lastGeneratedAt,
+  ];
+  @override
+  String get aliasedName => _alias ?? actualTableName;
+  @override
+  String get actualTableName => $name;
+  static const String $name = 'wrap_settings';
+  @override
+  VerificationContext validateIntegrity(
+    Insertable<WrapSetting> instance, {
+    bool isInserting = false,
+  }) {
+    final context = VerificationContext();
+    final data = instance.toColumns(true);
+    if (data.containsKey('id')) {
+      context.handle(_idMeta, id.isAcceptableOrUnknown(data['id']!, _idMeta));
+    }
+    if (data.containsKey('genre_enabled')) {
+      context.handle(
+        _genreEnabledMeta,
+        genreEnabled.isAcceptableOrUnknown(
+          data['genre_enabled']!,
+          _genreEnabledMeta,
+        ),
+      );
+    }
+    if (data.containsKey('reset_month')) {
+      context.handle(
+        _resetMonthMeta,
+        resetMonth.isAcceptableOrUnknown(data['reset_month']!, _resetMonthMeta),
+      );
+    }
+    if (data.containsKey('reset_day')) {
+      context.handle(
+        _resetDayMeta,
+        resetDay.isAcceptableOrUnknown(data['reset_day']!, _resetDayMeta),
+      );
+    }
+    if (data.containsKey('last_generated_at')) {
+      context.handle(
+        _lastGeneratedAtMeta,
+        lastGeneratedAt.isAcceptableOrUnknown(
+          data['last_generated_at']!,
+          _lastGeneratedAtMeta,
+        ),
+      );
+    }
+    return context;
+  }
+
+  @override
+  Set<GeneratedColumn> get $primaryKey => {id};
+  @override
+  WrapSetting map(Map<String, dynamic> data, {String? tablePrefix}) {
+    final effectivePrefix = tablePrefix != null ? '$tablePrefix.' : '';
+    return WrapSetting(
+      id: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}id'],
+      )!,
+      genreEnabled: attachedDatabase.typeMapping.read(
+        DriftSqlType.bool,
+        data['${effectivePrefix}genre_enabled'],
+      )!,
+      resetMonth: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}reset_month'],
+      )!,
+      resetDay: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}reset_day'],
+      )!,
+      lastGeneratedAt: attachedDatabase.typeMapping.read(
+        DriftSqlType.dateTime,
+        data['${effectivePrefix}last_generated_at'],
+      ),
+    );
+  }
+
+  @override
+  $WrapSettingsTable createAlias(String alias) {
+    return $WrapSettingsTable(attachedDatabase, alias);
+  }
+}
+
+class WrapSetting extends DataClass implements Insertable<WrapSetting> {
+  final int id;
+  final bool genreEnabled;
+  final int resetMonth;
+  final int resetDay;
+  final DateTime? lastGeneratedAt;
+  const WrapSetting({
+    required this.id,
+    required this.genreEnabled,
+    required this.resetMonth,
+    required this.resetDay,
+    this.lastGeneratedAt,
+  });
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    map['id'] = Variable<int>(id);
+    map['genre_enabled'] = Variable<bool>(genreEnabled);
+    map['reset_month'] = Variable<int>(resetMonth);
+    map['reset_day'] = Variable<int>(resetDay);
+    if (!nullToAbsent || lastGeneratedAt != null) {
+      map['last_generated_at'] = Variable<DateTime>(lastGeneratedAt);
+    }
+    return map;
+  }
+
+  WrapSettingsCompanion toCompanion(bool nullToAbsent) {
+    return WrapSettingsCompanion(
+      id: Value(id),
+      genreEnabled: Value(genreEnabled),
+      resetMonth: Value(resetMonth),
+      resetDay: Value(resetDay),
+      lastGeneratedAt: lastGeneratedAt == null && nullToAbsent
+          ? const Value.absent()
+          : Value(lastGeneratedAt),
+    );
+  }
+
+  factory WrapSetting.fromJson(
+    Map<String, dynamic> json, {
+    ValueSerializer? serializer,
+  }) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return WrapSetting(
+      id: serializer.fromJson<int>(json['id']),
+      genreEnabled: serializer.fromJson<bool>(json['genreEnabled']),
+      resetMonth: serializer.fromJson<int>(json['resetMonth']),
+      resetDay: serializer.fromJson<int>(json['resetDay']),
+      lastGeneratedAt: serializer.fromJson<DateTime?>(json['lastGeneratedAt']),
+    );
+  }
+  @override
+  Map<String, dynamic> toJson({ValueSerializer? serializer}) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return <String, dynamic>{
+      'id': serializer.toJson<int>(id),
+      'genreEnabled': serializer.toJson<bool>(genreEnabled),
+      'resetMonth': serializer.toJson<int>(resetMonth),
+      'resetDay': serializer.toJson<int>(resetDay),
+      'lastGeneratedAt': serializer.toJson<DateTime?>(lastGeneratedAt),
+    };
+  }
+
+  WrapSetting copyWith({
+    int? id,
+    bool? genreEnabled,
+    int? resetMonth,
+    int? resetDay,
+    Value<DateTime?> lastGeneratedAt = const Value.absent(),
+  }) => WrapSetting(
+    id: id ?? this.id,
+    genreEnabled: genreEnabled ?? this.genreEnabled,
+    resetMonth: resetMonth ?? this.resetMonth,
+    resetDay: resetDay ?? this.resetDay,
+    lastGeneratedAt: lastGeneratedAt.present
+        ? lastGeneratedAt.value
+        : this.lastGeneratedAt,
+  );
+  WrapSetting copyWithCompanion(WrapSettingsCompanion data) {
+    return WrapSetting(
+      id: data.id.present ? data.id.value : this.id,
+      genreEnabled: data.genreEnabled.present
+          ? data.genreEnabled.value
+          : this.genreEnabled,
+      resetMonth: data.resetMonth.present
+          ? data.resetMonth.value
+          : this.resetMonth,
+      resetDay: data.resetDay.present ? data.resetDay.value : this.resetDay,
+      lastGeneratedAt: data.lastGeneratedAt.present
+          ? data.lastGeneratedAt.value
+          : this.lastGeneratedAt,
+    );
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('WrapSetting(')
+          ..write('id: $id, ')
+          ..write('genreEnabled: $genreEnabled, ')
+          ..write('resetMonth: $resetMonth, ')
+          ..write('resetDay: $resetDay, ')
+          ..write('lastGeneratedAt: $lastGeneratedAt')
+          ..write(')'))
+        .toString();
+  }
+
+  @override
+  int get hashCode =>
+      Object.hash(id, genreEnabled, resetMonth, resetDay, lastGeneratedAt);
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      (other is WrapSetting &&
+          other.id == this.id &&
+          other.genreEnabled == this.genreEnabled &&
+          other.resetMonth == this.resetMonth &&
+          other.resetDay == this.resetDay &&
+          other.lastGeneratedAt == this.lastGeneratedAt);
+}
+
+class WrapSettingsCompanion extends UpdateCompanion<WrapSetting> {
+  final Value<int> id;
+  final Value<bool> genreEnabled;
+  final Value<int> resetMonth;
+  final Value<int> resetDay;
+  final Value<DateTime?> lastGeneratedAt;
+  const WrapSettingsCompanion({
+    this.id = const Value.absent(),
+    this.genreEnabled = const Value.absent(),
+    this.resetMonth = const Value.absent(),
+    this.resetDay = const Value.absent(),
+    this.lastGeneratedAt = const Value.absent(),
+  });
+  WrapSettingsCompanion.insert({
+    this.id = const Value.absent(),
+    this.genreEnabled = const Value.absent(),
+    this.resetMonth = const Value.absent(),
+    this.resetDay = const Value.absent(),
+    this.lastGeneratedAt = const Value.absent(),
+  });
+  static Insertable<WrapSetting> custom({
+    Expression<int>? id,
+    Expression<bool>? genreEnabled,
+    Expression<int>? resetMonth,
+    Expression<int>? resetDay,
+    Expression<DateTime>? lastGeneratedAt,
+  }) {
+    return RawValuesInsertable({
+      if (id != null) 'id': id,
+      if (genreEnabled != null) 'genre_enabled': genreEnabled,
+      if (resetMonth != null) 'reset_month': resetMonth,
+      if (resetDay != null) 'reset_day': resetDay,
+      if (lastGeneratedAt != null) 'last_generated_at': lastGeneratedAt,
+    });
+  }
+
+  WrapSettingsCompanion copyWith({
+    Value<int>? id,
+    Value<bool>? genreEnabled,
+    Value<int>? resetMonth,
+    Value<int>? resetDay,
+    Value<DateTime?>? lastGeneratedAt,
+  }) {
+    return WrapSettingsCompanion(
+      id: id ?? this.id,
+      genreEnabled: genreEnabled ?? this.genreEnabled,
+      resetMonth: resetMonth ?? this.resetMonth,
+      resetDay: resetDay ?? this.resetDay,
+      lastGeneratedAt: lastGeneratedAt ?? this.lastGeneratedAt,
+    );
+  }
+
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    if (id.present) {
+      map['id'] = Variable<int>(id.value);
+    }
+    if (genreEnabled.present) {
+      map['genre_enabled'] = Variable<bool>(genreEnabled.value);
+    }
+    if (resetMonth.present) {
+      map['reset_month'] = Variable<int>(resetMonth.value);
+    }
+    if (resetDay.present) {
+      map['reset_day'] = Variable<int>(resetDay.value);
+    }
+    if (lastGeneratedAt.present) {
+      map['last_generated_at'] = Variable<DateTime>(lastGeneratedAt.value);
+    }
+    return map;
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('WrapSettingsCompanion(')
+          ..write('id: $id, ')
+          ..write('genreEnabled: $genreEnabled, ')
+          ..write('resetMonth: $resetMonth, ')
+          ..write('resetDay: $resetDay, ')
+          ..write('lastGeneratedAt: $lastGeneratedAt')
+          ..write(')'))
+        .toString();
+  }
+}
+
 abstract class _$AppDatabase extends GeneratedDatabase {
   _$AppDatabase(QueryExecutor e) : super(e);
   $AppDatabaseManager get managers => $AppDatabaseManager(this);
@@ -1698,9 +2420,16 @@ abstract class _$AppDatabase extends GeneratedDatabase {
   late final $PlaylistSongsTable playlistSongs = $PlaylistSongsTable(this);
   late final $SongOverridesTable songOverrides = $SongOverridesTable(this);
   late final $GroupArtworksTable groupArtworks = $GroupArtworksTable(this);
+  late final $PlayHistoryEntriesTable playHistoryEntries =
+      $PlayHistoryEntriesTable(this);
+  late final $WrapSettingsTable wrapSettings = $WrapSettingsTable(this);
   late final Index playlistSongsPlaylistPosition = Index(
     'playlist_songs_playlist_position',
     'CREATE INDEX playlist_songs_playlist_position ON playlist_songs (playlist_id, position)',
+  );
+  late final Index playHistoryPlayedAt = Index(
+    'play_history_played_at',
+    'CREATE INDEX play_history_played_at ON play_history_entries (played_at)',
   );
   @override
   Iterable<TableInfo<Table, Object?>> get allTables =>
@@ -1711,7 +2440,10 @@ abstract class _$AppDatabase extends GeneratedDatabase {
     playlistSongs,
     songOverrides,
     groupArtworks,
+    playHistoryEntries,
+    wrapSettings,
     playlistSongsPlaylistPosition,
+    playHistoryPlayedAt,
   ];
   @override
   StreamQueryUpdateRules get streamUpdateRules => const StreamQueryUpdateRules([
@@ -2842,6 +3574,417 @@ typedef $$GroupArtworksTableProcessedTableManager =
       GroupArtwork,
       PrefetchHooks Function()
     >;
+typedef $$PlayHistoryEntriesTableCreateCompanionBuilder =
+    PlayHistoryEntriesCompanion Function({
+      Value<int> id,
+      required String songId,
+      required DateTime playedAt,
+      required int msListened,
+      required int trackDurationMs,
+    });
+typedef $$PlayHistoryEntriesTableUpdateCompanionBuilder =
+    PlayHistoryEntriesCompanion Function({
+      Value<int> id,
+      Value<String> songId,
+      Value<DateTime> playedAt,
+      Value<int> msListened,
+      Value<int> trackDurationMs,
+    });
+
+class $$PlayHistoryEntriesTableFilterComposer
+    extends Composer<_$AppDatabase, $PlayHistoryEntriesTable> {
+  $$PlayHistoryEntriesTableFilterComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnFilters<int> get id => $composableBuilder(
+    column: $table.id,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get songId => $composableBuilder(
+    column: $table.songId,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<DateTime> get playedAt => $composableBuilder(
+    column: $table.playedAt,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get msListened => $composableBuilder(
+    column: $table.msListened,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get trackDurationMs => $composableBuilder(
+    column: $table.trackDurationMs,
+    builder: (column) => ColumnFilters(column),
+  );
+}
+
+class $$PlayHistoryEntriesTableOrderingComposer
+    extends Composer<_$AppDatabase, $PlayHistoryEntriesTable> {
+  $$PlayHistoryEntriesTableOrderingComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnOrderings<int> get id => $composableBuilder(
+    column: $table.id,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get songId => $composableBuilder(
+    column: $table.songId,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<DateTime> get playedAt => $composableBuilder(
+    column: $table.playedAt,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<int> get msListened => $composableBuilder(
+    column: $table.msListened,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<int> get trackDurationMs => $composableBuilder(
+    column: $table.trackDurationMs,
+    builder: (column) => ColumnOrderings(column),
+  );
+}
+
+class $$PlayHistoryEntriesTableAnnotationComposer
+    extends Composer<_$AppDatabase, $PlayHistoryEntriesTable> {
+  $$PlayHistoryEntriesTableAnnotationComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  GeneratedColumn<int> get id =>
+      $composableBuilder(column: $table.id, builder: (column) => column);
+
+  GeneratedColumn<String> get songId =>
+      $composableBuilder(column: $table.songId, builder: (column) => column);
+
+  GeneratedColumn<DateTime> get playedAt =>
+      $composableBuilder(column: $table.playedAt, builder: (column) => column);
+
+  GeneratedColumn<int> get msListened => $composableBuilder(
+    column: $table.msListened,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<int> get trackDurationMs => $composableBuilder(
+    column: $table.trackDurationMs,
+    builder: (column) => column,
+  );
+}
+
+class $$PlayHistoryEntriesTableTableManager
+    extends
+        RootTableManager<
+          _$AppDatabase,
+          $PlayHistoryEntriesTable,
+          PlayHistoryEntry,
+          $$PlayHistoryEntriesTableFilterComposer,
+          $$PlayHistoryEntriesTableOrderingComposer,
+          $$PlayHistoryEntriesTableAnnotationComposer,
+          $$PlayHistoryEntriesTableCreateCompanionBuilder,
+          $$PlayHistoryEntriesTableUpdateCompanionBuilder,
+          (
+            PlayHistoryEntry,
+            BaseReferences<
+              _$AppDatabase,
+              $PlayHistoryEntriesTable,
+              PlayHistoryEntry
+            >,
+          ),
+          PlayHistoryEntry,
+          PrefetchHooks Function()
+        > {
+  $$PlayHistoryEntriesTableTableManager(
+    _$AppDatabase db,
+    $PlayHistoryEntriesTable table,
+  ) : super(
+        TableManagerState(
+          db: db,
+          table: table,
+          createFilteringComposer: () =>
+              $$PlayHistoryEntriesTableFilterComposer($db: db, $table: table),
+          createOrderingComposer: () =>
+              $$PlayHistoryEntriesTableOrderingComposer($db: db, $table: table),
+          createComputedFieldComposer: () =>
+              $$PlayHistoryEntriesTableAnnotationComposer(
+                $db: db,
+                $table: table,
+              ),
+          updateCompanionCallback:
+              ({
+                Value<int> id = const Value.absent(),
+                Value<String> songId = const Value.absent(),
+                Value<DateTime> playedAt = const Value.absent(),
+                Value<int> msListened = const Value.absent(),
+                Value<int> trackDurationMs = const Value.absent(),
+              }) => PlayHistoryEntriesCompanion(
+                id: id,
+                songId: songId,
+                playedAt: playedAt,
+                msListened: msListened,
+                trackDurationMs: trackDurationMs,
+              ),
+          createCompanionCallback:
+              ({
+                Value<int> id = const Value.absent(),
+                required String songId,
+                required DateTime playedAt,
+                required int msListened,
+                required int trackDurationMs,
+              }) => PlayHistoryEntriesCompanion.insert(
+                id: id,
+                songId: songId,
+                playedAt: playedAt,
+                msListened: msListened,
+                trackDurationMs: trackDurationMs,
+              ),
+          withReferenceMapper: (p0) => p0
+              .map((e) => (e.readTable(table), BaseReferences(db, table, e)))
+              .toList(),
+          prefetchHooksCallback: null,
+        ),
+      );
+}
+
+typedef $$PlayHistoryEntriesTableProcessedTableManager =
+    ProcessedTableManager<
+      _$AppDatabase,
+      $PlayHistoryEntriesTable,
+      PlayHistoryEntry,
+      $$PlayHistoryEntriesTableFilterComposer,
+      $$PlayHistoryEntriesTableOrderingComposer,
+      $$PlayHistoryEntriesTableAnnotationComposer,
+      $$PlayHistoryEntriesTableCreateCompanionBuilder,
+      $$PlayHistoryEntriesTableUpdateCompanionBuilder,
+      (
+        PlayHistoryEntry,
+        BaseReferences<
+          _$AppDatabase,
+          $PlayHistoryEntriesTable,
+          PlayHistoryEntry
+        >,
+      ),
+      PlayHistoryEntry,
+      PrefetchHooks Function()
+    >;
+typedef $$WrapSettingsTableCreateCompanionBuilder =
+    WrapSettingsCompanion Function({
+      Value<int> id,
+      Value<bool> genreEnabled,
+      Value<int> resetMonth,
+      Value<int> resetDay,
+      Value<DateTime?> lastGeneratedAt,
+    });
+typedef $$WrapSettingsTableUpdateCompanionBuilder =
+    WrapSettingsCompanion Function({
+      Value<int> id,
+      Value<bool> genreEnabled,
+      Value<int> resetMonth,
+      Value<int> resetDay,
+      Value<DateTime?> lastGeneratedAt,
+    });
+
+class $$WrapSettingsTableFilterComposer
+    extends Composer<_$AppDatabase, $WrapSettingsTable> {
+  $$WrapSettingsTableFilterComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnFilters<int> get id => $composableBuilder(
+    column: $table.id,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<bool> get genreEnabled => $composableBuilder(
+    column: $table.genreEnabled,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get resetMonth => $composableBuilder(
+    column: $table.resetMonth,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get resetDay => $composableBuilder(
+    column: $table.resetDay,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<DateTime> get lastGeneratedAt => $composableBuilder(
+    column: $table.lastGeneratedAt,
+    builder: (column) => ColumnFilters(column),
+  );
+}
+
+class $$WrapSettingsTableOrderingComposer
+    extends Composer<_$AppDatabase, $WrapSettingsTable> {
+  $$WrapSettingsTableOrderingComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnOrderings<int> get id => $composableBuilder(
+    column: $table.id,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<bool> get genreEnabled => $composableBuilder(
+    column: $table.genreEnabled,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<int> get resetMonth => $composableBuilder(
+    column: $table.resetMonth,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<int> get resetDay => $composableBuilder(
+    column: $table.resetDay,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<DateTime> get lastGeneratedAt => $composableBuilder(
+    column: $table.lastGeneratedAt,
+    builder: (column) => ColumnOrderings(column),
+  );
+}
+
+class $$WrapSettingsTableAnnotationComposer
+    extends Composer<_$AppDatabase, $WrapSettingsTable> {
+  $$WrapSettingsTableAnnotationComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  GeneratedColumn<int> get id =>
+      $composableBuilder(column: $table.id, builder: (column) => column);
+
+  GeneratedColumn<bool> get genreEnabled => $composableBuilder(
+    column: $table.genreEnabled,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<int> get resetMonth => $composableBuilder(
+    column: $table.resetMonth,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<int> get resetDay =>
+      $composableBuilder(column: $table.resetDay, builder: (column) => column);
+
+  GeneratedColumn<DateTime> get lastGeneratedAt => $composableBuilder(
+    column: $table.lastGeneratedAt,
+    builder: (column) => column,
+  );
+}
+
+class $$WrapSettingsTableTableManager
+    extends
+        RootTableManager<
+          _$AppDatabase,
+          $WrapSettingsTable,
+          WrapSetting,
+          $$WrapSettingsTableFilterComposer,
+          $$WrapSettingsTableOrderingComposer,
+          $$WrapSettingsTableAnnotationComposer,
+          $$WrapSettingsTableCreateCompanionBuilder,
+          $$WrapSettingsTableUpdateCompanionBuilder,
+          (
+            WrapSetting,
+            BaseReferences<_$AppDatabase, $WrapSettingsTable, WrapSetting>,
+          ),
+          WrapSetting,
+          PrefetchHooks Function()
+        > {
+  $$WrapSettingsTableTableManager(_$AppDatabase db, $WrapSettingsTable table)
+    : super(
+        TableManagerState(
+          db: db,
+          table: table,
+          createFilteringComposer: () =>
+              $$WrapSettingsTableFilterComposer($db: db, $table: table),
+          createOrderingComposer: () =>
+              $$WrapSettingsTableOrderingComposer($db: db, $table: table),
+          createComputedFieldComposer: () =>
+              $$WrapSettingsTableAnnotationComposer($db: db, $table: table),
+          updateCompanionCallback:
+              ({
+                Value<int> id = const Value.absent(),
+                Value<bool> genreEnabled = const Value.absent(),
+                Value<int> resetMonth = const Value.absent(),
+                Value<int> resetDay = const Value.absent(),
+                Value<DateTime?> lastGeneratedAt = const Value.absent(),
+              }) => WrapSettingsCompanion(
+                id: id,
+                genreEnabled: genreEnabled,
+                resetMonth: resetMonth,
+                resetDay: resetDay,
+                lastGeneratedAt: lastGeneratedAt,
+              ),
+          createCompanionCallback:
+              ({
+                Value<int> id = const Value.absent(),
+                Value<bool> genreEnabled = const Value.absent(),
+                Value<int> resetMonth = const Value.absent(),
+                Value<int> resetDay = const Value.absent(),
+                Value<DateTime?> lastGeneratedAt = const Value.absent(),
+              }) => WrapSettingsCompanion.insert(
+                id: id,
+                genreEnabled: genreEnabled,
+                resetMonth: resetMonth,
+                resetDay: resetDay,
+                lastGeneratedAt: lastGeneratedAt,
+              ),
+          withReferenceMapper: (p0) => p0
+              .map((e) => (e.readTable(table), BaseReferences(db, table, e)))
+              .toList(),
+          prefetchHooksCallback: null,
+        ),
+      );
+}
+
+typedef $$WrapSettingsTableProcessedTableManager =
+    ProcessedTableManager<
+      _$AppDatabase,
+      $WrapSettingsTable,
+      WrapSetting,
+      $$WrapSettingsTableFilterComposer,
+      $$WrapSettingsTableOrderingComposer,
+      $$WrapSettingsTableAnnotationComposer,
+      $$WrapSettingsTableCreateCompanionBuilder,
+      $$WrapSettingsTableUpdateCompanionBuilder,
+      (
+        WrapSetting,
+        BaseReferences<_$AppDatabase, $WrapSettingsTable, WrapSetting>,
+      ),
+      WrapSetting,
+      PrefetchHooks Function()
+    >;
 
 class $AppDatabaseManager {
   final _$AppDatabase _db;
@@ -2854,4 +3997,8 @@ class $AppDatabaseManager {
       $$SongOverridesTableTableManager(_db, _db.songOverrides);
   $$GroupArtworksTableTableManager get groupArtworks =>
       $$GroupArtworksTableTableManager(_db, _db.groupArtworks);
+  $$PlayHistoryEntriesTableTableManager get playHistoryEntries =>
+      $$PlayHistoryEntriesTableTableManager(_db, _db.playHistoryEntries);
+  $$WrapSettingsTableTableManager get wrapSettings =>
+      $$WrapSettingsTableTableManager(_db, _db.wrapSettings);
 }
