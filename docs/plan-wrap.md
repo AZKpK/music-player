@@ -50,13 +50,18 @@
 
 ## Order of work
 
-1. **Spike (first):** confirm `_player.position` at the moment
-   `_handleCurrentIndexChanged` fires still reflects the *outgoing* track's
-   position, not already reset for the new track. Sets
-   `kUseDurationPercentThreshold` true (50% rule) or false (60s fallback) —
-   both branches already written in `spec-wrap.md`.
+1. **Spike (first) — DONE:** confirmed on-device (two manual skips, logcat)
+   that `_player.position` read synchronously inside
+   `_handleCurrentIndexChanged` reflects the *incoming* track (~0ms), not
+   the outgoing one — the naive synchronous read doesn't work. Corrected
+   mechanism (continuously-tracked `_lastKnownPosition` via
+   `positionStream`, captured before the transition overwrites the current
+   item) written back into `spec-wrap.md`. `kUseDurationPercentThreshold`
+   still ships `true` (50% rule) — the threshold choice was independent of
+   the capture-mechanism bug.
 2. DB schema: add both tables + migration, regenerate `app_database.g.dart`.
-3. Recording hook in `_handleCurrentIndexChanged` + its tests.
+3. Recording hook in `_handleCurrentIndexChanged`, using the corrected
+   `_lastKnownPosition` mechanism from step 1, + its tests.
 4. `wrap_stats_service.dart` (`isCountedPlay`, `computeWrapStats`) + unit
    tests — pure, testable before anything else exists.
 5. `wrap_playlist_service.dart` (generation + collision suffixing) + unit
@@ -70,8 +75,10 @@ Each numbered step is its own commit (code + its tests together).
 
 ## Risks
 
-- Spike could go either way — low risk, both threshold branches are already
-  fully specified; worst case is picking the fallback.
+- ~~Spike could go either way~~ — resolved: synchronous `_player.position`
+  read doesn't work, corrected to a continuously-tracked `_lastKnownPosition`
+  field (see `spec-wrap.md`). No change to the 50%/60s threshold decision
+  itself.
 - Migration is additive-only (two new tables) — no risk to existing
   playlist/override data.
 - `fl_chart` is a new dependency — confirm `flutter pub get` resolves

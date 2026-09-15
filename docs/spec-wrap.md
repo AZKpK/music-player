@@ -51,11 +51,27 @@ class WrapSettings extends Table {
 ## Recording a play
 
 Hook into `AudioPlayerHandler` where song transitions already happen
-(`_handleCurrentIndexChanged`), not a new polling mechanism. When the
-current song changes (skip, natural completion, or queue change), record
-the outgoing song's `msListened` (how far playback got, from
-`_player.position`) and `trackDurationMs` as one `PlayHistoryEntries` row.
-This reuses data the handler already tracks — no new background timers.
+(`_handleCurrentIndexChanged`), not a new polling mechanism.
+
+**Build-stage spike result (see `plan-wrap.md` step 1):** reading
+`_player.position` synchronously inside `_handleCurrentIndexChanged` does
+**not** work — confirmed twice via manual skip on-device (logcat), just_audio
+has already reset `position` to ~0ms for the *incoming* track by the time
+this listener fires, regardless of how long the outgoing track had actually
+played. The handler cannot read the outgoing position after the fact.
+
+Corrected mechanism: track position continuously via the existing
+`_player.positionStream` (already subscribed elsewhere in the handler for
+UI state broadcast), keeping a `_lastKnownPosition` field updated on every
+emission. `_handleCurrentIndexChanged` then uses `_lastKnownPosition` —
+captured *before* `mediaItem.add(queue.value[index])` overwrites the current
+item — as the outgoing song's `msListened`, instead of reading
+`_player.position` directly. `trackDurationMs` still comes from the
+outgoing `mediaItem`'s duration (already resolved at queue-load /
+`_handleDurationChanged` time), not `_player.duration`.
+
+This still reuses data the handler already tracks — no new polling
+timers — just a stored last-seen value instead of a synchronous read.
 
 ## Countable-play threshold (Build-stage spike gate)
 
