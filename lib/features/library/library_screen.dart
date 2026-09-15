@@ -178,7 +178,7 @@ class _LibraryScreenState extends ConsumerState<LibraryScreen> {
                 ),
                 const _PlayLibraryButton(),
                 AppSelectMenu<LibraryMenuAction>(
-                  icon: const Icon(Icons.snippet_folder_outlined),
+                  icon: const Icon(Icons.more_vert),
                   tooltip: 'Več',
                   value: null,
                   onSelected: (action) => _onMenuAction(context, action),
