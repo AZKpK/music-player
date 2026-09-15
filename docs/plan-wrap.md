@@ -96,8 +96,15 @@
    `buildPlayHistoryEntry`) cover the pure logic; the stream-ordering bug
    itself only surfaced on-device, since it's about event ordering between
    two listeners, not something a pure-function unit test exercises.
-4. `wrap_stats_service.dart` (`isCountedPlay`, `computeWrapStats`) + unit
-   tests — pure, testable before anything else exists.
+4. **`wrap_stats_service.dart` — DONE:** `isCountedPlay` (50% threshold) and
+   `computeWrapStats` (top songs/artists/albums, unfiltered total minutes,
+   optional top genre), ranked with a count-desc/name-asc tiebreak for
+   deterministic ordering. Returns full sorted lists rather than a fixed
+   top-N — the spec only specifies N=100 for the two generated playlists,
+   not for the on-screen lists, so the UI (step 7) slices as needed. Missing
+   `libraryById` entries (deleted songs) still count toward total minutes
+   but not toward any ranking, since `PlayHistoryEntries` has no
+   artist/album/genre of its own to fall back on.
 5. `wrap_playlist_service.dart` (generation + collision suffixing) + unit
    tests.
 6. `wrap_providers.dart` — wire DB + stats + playlist service together.
