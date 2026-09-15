@@ -1,6 +1,6 @@
 # Spec: Yearly Wrap — correction round 2
 
-- **Status:** draft
+- **Status:** accepted
 - **Intent:** docs/faza2-wrap/intent-wrap2.md
 - **Supersedes:** `docs/faza2-wrap/spec-wrap.md` for the sections touched below
   ("Recording a play", "Aggregation", "UI"). Everything else in the original
