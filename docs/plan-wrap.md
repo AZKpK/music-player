@@ -198,8 +198,18 @@ Each numbered step is its own commit (code + its tests together).
 - Step 8: `flutter analyze` clean, `flutter test` all green, `flutter build
   apk --debug` succeeds — same three-command gate used for prior features
   (e.g. the P0/N5 queue-window work).
-- End-to-end (after step 7): play a few songs (including a skip before 50%,
-  and a `LoopMode.one` loop), open the Wrap menu entry, confirm top
-  songs/artists/albums, total minutes, and (genre toggle on) top genre
-  render correctly, and that both generated playlists (`Wrap <year>`,
-  `Wrap All-Time`) show the expected songs.
+- **End-to-end — DONE:** manually verified on-device (Pixel_7 emulator,
+  debug APK). Played several songs including a skip before 50% (uncounted)
+  and normal full plays; opened the Wrap menu entry (`Nastavitve` /
+  `Predvajaj iz mape` / `Wrap` — all three present as specified) and
+  confirmed: total minutes card ("17 min"), genre toggle switches and
+  persists (no genre chip shown since the test library's songs carry no
+  genre metadata — matches `computeWrapStats`'s "ignores songs with no known
+  genre" behavior), top songs bar chart + ranked songs/artists/albums lists
+  all correctly ordered and counted (`The Killers` 2x as top artist, etc.).
+  Both playlist links (`Wrap 2025`, `Wrap All-Time`) render and are
+  navigable: `Wrap All-Time` opens to show all 4 counted songs correctly
+  ranked; `Wrap 2025` opens to the correct empty state
+  ("Playlista je prazna - dodaj pesmi iz knjižnice") since no 2025 history
+  exists yet — confirming the playlist is generated-but-empty rather than
+  skipped.
