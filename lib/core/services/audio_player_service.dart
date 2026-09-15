@@ -5,6 +5,7 @@ import 'package:audio_service/audio_service.dart';
 import 'package:audio_session/audio_session.dart';
 import 'package:just_audio/just_audio.dart';
 
+import '../db/app_database.dart';
 import '../models/song.dart';
 import 'media_library_service.dart';
 
@@ -161,11 +162,74 @@ List<QueueEntry> buildPlayOrder({
   return [current, ...others];
 }
 
+/// Pravi builder za [PlayHistoryEntries] vrstico, vstavljeno ob vsakem koncu
+/// posla (song transition, `LoopMode.one` repeat, ali naraven konec queue-a).
+/// `trackDurationMs` pride iz izhodnega [MediaItem]-a (že razrešen ob
+/// queue-load / `_handleDurationChanged`), ne iz `_player.duration` - glej
+/// `docs/spec-wrap.md` "Recording a play".
+PlayHistoryEntriesCompanion buildPlayHistoryEntry({
+  required MediaItem outgoing,
+  required Duration msListened,
+  required DateTime playedAt,
+}) {
+  return PlayHistoryEntriesCompanion.insert(
+    songId: outgoing.id,
+    playedAt: playedAt,
+    msListened: msListened.inMilliseconds,
+    trackDurationMs: outgoing.duration?.inMilliseconds ?? 0,
+  );
+}
+
+/// `currentIndexStream` dogodek pomeni pravo menjavo pesmi le, če se izhodni
+/// [MediaItem] razlikuje od dohodnega - nekatera mesta (`loadQueue`,
+/// `clearQueue`, zamenjava shuffle okna) `mediaItem` objavijo neposredno,
+/// še preden dogodek sproži isti (nespremenjeni) indeks - "poravnalni"
+/// dogodek, ne prava menjava.
+bool isRealSongTransition({
+  required MediaItem? outgoing,
+  required MediaItem incoming,
+}) {
+  if (outgoing == null) return false;
+  return outgoing.extras?[queueItemIdExtraKey] !=
+      incoming.extras?[queueItemIdExtraKey];
+}
+
+/// just_audio ob `LoopMode.one` ponovitvi ne sproži nobenega stream dogodka
+/// (potrjeno na napravi, glej `docs/spec-wrap.md` "Recording a play") - tiho
+/// skoči nazaj na začetek in nadaljuje predvajanje. Edini razpoložljiv signal
+/// je nazaj-skok na (skoraj) nič v `positionStream`, iz smiselno ne-ničelne
+/// pozicije. Meji `nearZero`/`minPreviousPosition` preprečita lažni sprožilec
+/// ob ročnem "rewind 5s" dotiku blizu začetka posnetka.
+/// Skupni gradnik za [isLoopOneRepeat] in `_handlePositionChanged`: prepozna
+/// nenaden padec pozicije nazaj proti začetku, kar just_audio sproži tako ob
+/// loop-one ponovitvi kot tudi (kot `positionStream` dogodek na ~0, ki pride
+/// *pred* `currentIndexStream`) ob prehodu na naslednjo pesem.
+bool isBackwardJumpToStart({
+  required Duration previousPosition,
+  required Duration newPosition,
+}) {
+  const nearZero = Duration(milliseconds: 500);
+  const minPreviousPosition = Duration(seconds: 2);
+  return newPosition <= nearZero && previousPosition >= minPreviousPosition;
+}
+
+bool isLoopOneRepeat({
+  required AudioServiceRepeatMode repeatMode,
+  required Duration previousPosition,
+  required Duration newPosition,
+}) {
+  if (repeatMode != AudioServiceRepeatMode.one) return false;
+  return isBackwardJumpToStart(
+    previousPosition: previousPosition,
+    newPosition: newPosition,
+  );
+}
+
 /// Inicializira audio_service background handler. Kliči enkrat v main()
 /// preden zaženeš runApp().
-Future<AudioPlayerHandler> initAudioService() {
+Future<AudioPlayerHandler> initAudioService(AppDatabase database) {
   return AudioService.init(
-    builder: () => AudioPlayerHandler(),
+    builder: () => AudioPlayerHandler(database: database),
     config: const AudioServiceConfig(
       androidNotificationChannelId: 'com.andraz.music_player.channel.audio',
       androidNotificationChannelName: 'Music playback',
@@ -183,13 +247,14 @@ Future<AudioPlayerHandler> initAudioService() {
 /// `SeekHandler` pa doda fastForward/rewind na podlagi seek().
 class AudioPlayerHandler extends BaseAudioHandler
     with QueueHandler, SeekHandler {
-  AudioPlayerHandler() {
+  AudioPlayerHandler({required AppDatabase database}) : _database = database {
     _player.playbackEventStream.listen(
       _broadcastState,
       onError: (Object error, StackTrace stackTrace) => _handlePlaybackError(),
     );
     _player.currentIndexStream.listen(_handleCurrentIndexChanged);
     _player.durationStream.listen(_handleDurationChanged);
+    _player.positionStream.listen(_handlePositionChanged);
     _player.processingStateStream.listen((state) {
       if (state == ProcessingState.completed) {
         _handleCompleted();
@@ -197,6 +262,15 @@ class AudioPlayerHandler extends BaseAudioHandler
     });
     _configureAudioSession();
   }
+
+  final AppDatabase _database;
+
+  /// Zadnja znana pozicija trenutne pesmi, posodobljena ob vsaki
+  /// `positionStream` oddaji - potrebna, ker `_player.position` ob
+  /// `currentIndexStream` dogodku že kaže na novo (dohodno) pesem, ne na
+  /// tisto, ki se je pravkar končala (glej `docs/spec-wrap.md`
+  /// "Recording a play").
+  Duration _lastKnownPosition = Duration.zero;
 
   /// Napake pri predvajanju ene pesmi v queue-u (npr. datoteka je bila
   /// medtem izbrisana/premaknjena) - UI (npr. `PlayerScreen`) lahko posluša
@@ -290,6 +364,12 @@ class AudioPlayerHandler extends BaseAudioHandler
   /// pesem pa se razreši asinhrono v ozadju (glej
   /// [_resolveArtworkAround]).
   Future<void> loadQueue(List<Song> songs, {int initialIndex = 0}) async {
+    // `mediaItem` se spodaj objavi neposredno (glej komentar pri
+    // `mediaItem.add(queue.value[queueInitialIndex])`), zato
+    // `_handleCurrentIndexChanged` tega prehoda ne bo zaznal kot pravo
+    // menjavo - play prejšnje pesmi je treba zabeležiti tu.
+    _recordPlay(mediaItem.valueOrNull, _lastKnownPosition);
+    _lastKnownPosition = Duration.zero;
     _loadedQueueSongs = List.of(songs);
     final initialQueue = buildInitialQueue(
       songs: songs,
@@ -624,12 +704,70 @@ class AudioPlayerHandler extends BaseAudioHandler
   void _handleCompleted() {
     // Ko je queue končan (in loop off), pustimo playerja v paused stanju
     // na zadnji poziciji - just_audio + LoopMode.all/one to lovi sam.
+    // To je edini primer, ko `ProcessingState.completed` sploh nastopi (glej
+    // `isLoopOneRepeat`/`docs/spec-wrap.md`) - zadnja pesem queue-a je torej
+    // res dokončno odigrana.
+    _recordPlay(mediaItem.valueOrNull, _lastKnownPosition);
   }
 
   void _handleCurrentIndexChanged(int? index) {
     if (index == null || index < 0 || index >= queue.value.length) return;
-    mediaItem.add(queue.value[index]);
+    final incoming = queue.value[index];
+    if (isRealSongTransition(outgoing: mediaItem.valueOrNull, incoming: incoming)) {
+      _recordPlay(mediaItem.valueOrNull, _lastKnownPosition);
+    }
+    _lastKnownPosition = Duration.zero;
+    mediaItem.add(incoming);
     unawaited(_resolveArtworkAround(index));
+  }
+
+  /// Sledi `_lastKnownPosition` in zazna `LoopMode.one` ponovitve (glej
+  /// [isLoopOneRepeat]) - edino mesto, kjer se takšna ponovitev sploh opazi,
+  /// ker zanjo ne obstaja noben drug stream dogodek.
+  ///
+  /// just_audio ob prehodu na naslednjo pesem sprosti `positionStream`
+  /// dogodek na ~0 *preden* `currentIndexStream` sproži
+  /// `_handleCurrentIndexChanged` (potrjeno on-device) - če bi tu vedno
+  /// posodobili `_lastKnownPosition`, bi ta padla na 0 še preden jo
+  /// `_handleCurrentIndexChanged` ujame, in `msListened` bi bil vedno 0.
+  /// Zato tak "sumljiv" padec (razen pri loop-one, kjer ga eksplicitno
+  /// obravnavamo zgoraj) ignoriramo in počakamo, da ga razreši
+  /// `_handleCurrentIndexChanged`.
+  void _handlePositionChanged(Duration position) {
+    if (isLoopOneRepeat(
+      repeatMode: _repeatMode,
+      previousPosition: _lastKnownPosition,
+      newPosition: position,
+    )) {
+      _recordPlay(mediaItem.valueOrNull, _lastKnownPosition);
+      _lastKnownPosition = position;
+      return;
+    }
+    if (isBackwardJumpToStart(
+      previousPosition: _lastKnownPosition,
+      newPosition: position,
+    )) {
+      // Sumljiv padec, a ne loop-one: verjetno je to prehod na naslednjo
+      // pesem, ki ga bo takoj zatem ujel `_handleCurrentIndexChanged` - ne
+      // posodobimo `_lastKnownPosition`, da ta ostane na voljo zanj.
+      return;
+    }
+    _lastKnownPosition = position;
+  }
+
+  /// Fire-and-forget insert - klicna mesta (transition/loop-repeat/completed)
+  /// ne smejo čakati na DB write, da se predvajanje ne zatakne.
+  void _recordPlay(MediaItem? outgoing, Duration msListened) {
+    if (outgoing == null) return;
+    unawaited(
+      _database.recordPlay(
+        buildPlayHistoryEntry(
+          outgoing: outgoing,
+          msListened: msListened,
+          playedAt: DateTime.now(),
+        ),
+      ),
+    );
   }
 
   /// Folder scan ne prebere trajanja iz datoteke. `just_audio` ga sporoči

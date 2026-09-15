@@ -276,6 +276,13 @@ class AppDatabase extends _$AppDatabase {
     );
     await (delete(playlistSongs)..where((t) => t.songId.equals(songId))).go();
   }
+
+  /// Zabeleži en play (glej `AudioPlayerHandler._recordPlay` -
+  /// `audio_player_service.dart`) - fire-and-forget klic z vira, ne sme
+  /// blokirati predvajanja.
+  Future<void> recordPlay(PlayHistoryEntriesCompanion entry) {
+    return into(playHistoryEntries).insert(entry);
+  }
 }
 
 /// Sestavljen ključ za reaktivni zemljevid [GroupArtworks].

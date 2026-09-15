@@ -1,19 +1,28 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import 'core/db/app_database.dart';
 import 'core/navigation/app_navigation.dart';
 import 'core/services/audio_player_providers.dart';
 import 'core/services/audio_player_service.dart';
+import 'core/services/playlist_providers.dart';
 import 'features/library/library_screen.dart';
 import 'features/player/mini_player.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
-  final audioHandler = await initAudioService();
+  // Ena instanca za celotno app-life-time, deljena med `AudioPlayerHandler`
+  // (potrebuje jo za `PlayHistoryEntries` zapise - glej `audio_player_service.dart`)
+  // in `appDatabaseProvider` (Riverpod), namesto da bi vsak ustvaril svojo.
+  final database = AppDatabase();
+  final audioHandler = await initAudioService(database);
 
   runApp(
     ProviderScope(
-      overrides: [audioHandlerProvider.overrideWithValue(audioHandler)],
+      overrides: [
+        audioHandlerProvider.overrideWithValue(audioHandler),
+        appDatabaseProvider.overrideWithValue(database),
+      ],
       child: const MusicPlayerApp(),
     ),
   );

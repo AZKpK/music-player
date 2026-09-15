@@ -311,4 +311,160 @@ void main() {
       );
     });
   });
+
+  group('buildPlayHistoryEntry', () {
+    test('captures songId, msListened and playedAt from the arguments', () {
+      final outgoing = MediaItem(
+        id: 'song-a',
+        title: 'Song A',
+        duration: const Duration(minutes: 3),
+      );
+      final playedAt = DateTime(2026, 9, 15, 12, 0);
+
+      final entry = buildPlayHistoryEntry(
+        outgoing: outgoing,
+        msListened: const Duration(seconds: 90),
+        playedAt: playedAt,
+      );
+
+      expect(entry.songId.value, 'song-a');
+      expect(entry.msListened.value, 90000);
+      expect(entry.trackDurationMs.value, 180000);
+      expect(entry.playedAt.value, playedAt);
+    });
+
+    test('falls back to 0 trackDurationMs when duration is unknown', () {
+      final outgoing = MediaItem(id: 'song-a', title: 'Song A');
+
+      final entry = buildPlayHistoryEntry(
+        outgoing: outgoing,
+        msListened: const Duration(seconds: 5),
+        playedAt: DateTime(2026, 9, 15),
+      );
+
+      expect(entry.trackDurationMs.value, 0);
+    });
+  });
+
+  group('isRealSongTransition', () {
+    MediaItem item(String id, int queueItemId) => MediaItem(
+      id: id,
+      title: id,
+      extras: {queueItemIdExtraKey: queueItemId},
+    );
+
+    test('false when outgoing is null (nothing was playing yet)', () {
+      expect(
+        isRealSongTransition(outgoing: null, incoming: item('a', 0)),
+        isFalse,
+      );
+    });
+
+    test('false when outgoing and incoming are the same queue entry', () {
+      expect(
+        isRealSongTransition(outgoing: item('a', 0), incoming: item('a', 0)),
+        isFalse,
+      );
+    });
+
+    test('true when outgoing and incoming differ', () {
+      expect(
+        isRealSongTransition(outgoing: item('a', 0), incoming: item('b', 1)),
+        isTrue,
+      );
+    });
+  });
+
+  group('isLoopOneRepeat', () {
+    test('false when repeat mode is not one', () {
+      expect(
+        isLoopOneRepeat(
+          repeatMode: AudioServiceRepeatMode.all,
+          previousPosition: const Duration(minutes: 3),
+          newPosition: Duration.zero,
+        ),
+        isFalse,
+      );
+    });
+
+    test('true on a backward jump to near-zero from a real position', () {
+      expect(
+        isLoopOneRepeat(
+          repeatMode: AudioServiceRepeatMode.one,
+          previousPosition: const Duration(minutes: 3),
+          newPosition: Duration.zero,
+        ),
+        isTrue,
+      );
+    });
+
+    test('false during normal forward playback', () {
+      expect(
+        isLoopOneRepeat(
+          repeatMode: AudioServiceRepeatMode.one,
+          previousPosition: const Duration(seconds: 10),
+          newPosition: const Duration(seconds: 11),
+        ),
+        isFalse,
+      );
+    });
+
+    test('false for a manual rewind that does not land near zero', () {
+      expect(
+        isLoopOneRepeat(
+          repeatMode: AudioServiceRepeatMode.one,
+          previousPosition: const Duration(minutes: 4),
+          newPosition: const Duration(minutes: 3, seconds: 55),
+        ),
+        isFalse,
+      );
+    });
+
+    test('false when previous position was already near the start', () {
+      expect(
+        isLoopOneRepeat(
+          repeatMode: AudioServiceRepeatMode.one,
+          previousPosition: const Duration(seconds: 1),
+          newPosition: Duration.zero,
+        ),
+        isFalse,
+      );
+    });
+  });
+
+  group('isBackwardJumpToStart', () {
+    // Deljena logika z isLoopOneRepeat (glej `_handlePositionChanged`), a
+    // brez repeatMode omejitve - uporablja se tudi za normalne prehode na
+    // naslednjo pesem, kjer just_audio sprosti positionStream dogodek na ~0
+    // preden currentIndexStream ujame prehod.
+    test('true on a backward jump to near-zero from a real position', () {
+      expect(
+        isBackwardJumpToStart(
+          previousPosition: const Duration(minutes: 3),
+          newPosition: Duration.zero,
+        ),
+        isTrue,
+      );
+    });
+
+    test('false during normal forward playback', () {
+      expect(
+        isBackwardJumpToStart(
+          previousPosition: const Duration(seconds: 10),
+          newPosition: const Duration(seconds: 11),
+        ),
+        isFalse,
+      );
+    });
+
+    test('false when previous position was already near the start', () {
+      expect(
+        isBackwardJumpToStart(
+          previousPosition: const Duration(seconds: 1),
+          newPosition: Duration.zero,
+        ),
+        isFalse,
+      );
+    });
+  });
 }

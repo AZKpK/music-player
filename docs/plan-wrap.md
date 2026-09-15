@@ -68,10 +68,34 @@
    `LoopMode.one` is active, treat it as a completed play of the looped
    track) written back into `spec-wrap.md`.
 2. DB schema: add both tables + migration, regenerate `app_database.g.dart`.
-3. Recording hook: `_lastKnownPosition` mechanism from step 1 feeding
-   `_handleCurrentIndexChanged` for normal transitions, *plus* the
-   backward-jump detection from the second spike for `LoopMode.one`
-   repeats, + tests for both paths.
+3. **Recording hook — DONE:** `_lastKnownPosition` (updated from
+   `positionStream`) feeds `_handleCurrentIndexChanged` for normal
+   transitions, `_handleCompleted` for natural queue-end, and a
+   backward-jump check in `positionStream` for `LoopMode.one` repeats — all
+   three routed through one `_recordPlay` helper (`AppDatabase.recordPlay`).
+   Extended beyond the plan's literal text to also cover a fourth case found
+   while reading `loadQueue`: replacing the whole queue mid-song (the
+   existing `mediaItem.add` pre-publish there means `_handleCurrentIndexChanged`
+   alone would silently lose that play) — `loadQueue` now records the
+   outgoing song itself before rebuilding the queue.
+
+   **On-device smoke test caught a real bug**, not just confirmed the
+   design: `positionStream` fires a ~0 position event for the *next* track
+   before `currentIndexStream` fires, so the original
+   `_handlePositionChanged` (which unconditionally updated
+   `_lastKnownPosition`) stomped it to 0 right before
+   `_handleCurrentIndexChanged` could record it — every transition-recorded
+   play had `msListened = 0`. Fixed by extracting the loop-one backward-jump
+   check into a shared `isBackwardJumpToStart` (repeat-mode-agnostic) and
+   having `_handlePositionChanged` skip updating `_lastKnownPosition` on any
+   such jump that isn't the loop-one case, leaving it for
+   `_handleCurrentIndexChanged` to consume and reset. Re-verified on-device
+   afterward: skipping "Battle Born" → "Mr. Brightside" wrote
+   `msListened = 18157` (real elapsed ms) instead of `0`. Unit tests
+   (`isRealSongTransition`, `isLoopOneRepeat`, `isBackwardJumpToStart`,
+   `buildPlayHistoryEntry`) cover the pure logic; the stream-ordering bug
+   itself only surfaced on-device, since it's about event ordering between
+   two listeners, not something a pure-function unit test exercises.
 4. `wrap_stats_service.dart` (`isCountedPlay`, `computeWrapStats`) + unit
    tests — pure, testable before anything else exists.
 5. `wrap_playlist_service.dart` (generation + collision suffixing) + unit
