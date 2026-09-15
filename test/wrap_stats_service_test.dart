@@ -188,6 +188,103 @@ void main() {
 
       expect(stats.topGenre, isNull);
     });
+
+    test(
+      'listenedMs sums only counted-play entries for a song, same gate as playCount',
+      () {
+        final song = _song('a');
+        final stats = computeWrapStats(
+          entries: [
+            // Counted (exactly 50% of duration).
+            _entry(songId: 'a', msListened: 150000, trackDurationMs: 300000),
+            // Uncounted (below threshold) - must not contribute to listenedMs.
+            _entry(songId: 'a', msListened: 1000, trackDurationMs: 300000),
+          ],
+          libraryById: {'a': song},
+        );
+
+        expect(stats.topSongs.single.playCount, 1);
+        expect(stats.topSongs.single.listenedMs, 150000);
+      },
+    );
+
+    test(
+      'songSortOption.listeningTime ranks a long track played once above a '
+      'short track played more times, even though play count says otherwise',
+      () {
+        // Intent example: a 3-minute track played 3x (9 min total) should
+        // rank below a 17-minute track played once when sorting by time.
+        final shortTrack = _song('short');
+        final longTrack = _song('long');
+        const shortDurationMs = 3 * 60 * 1000;
+        const longDurationMs = 17 * 60 * 1000;
+        final stats = computeWrapStats(
+          entries: [
+            for (var i = 0; i < 3; i++)
+              _entry(
+                songId: 'short',
+                msListened: shortDurationMs,
+                trackDurationMs: shortDurationMs,
+              ),
+            _entry(
+              songId: 'long',
+              msListened: longDurationMs,
+              trackDurationMs: longDurationMs,
+            ),
+          ],
+          libraryById: {'short': shortTrack, 'long': longTrack},
+          songSortOption: WrapSongSortOption.listeningTime,
+        );
+
+        expect(stats.topSongs.map((s) => s.song.id).toList(), [
+          'long',
+          'short',
+        ]);
+      },
+    );
+
+    test('default songSortOption is playCount, matching existing behavior', () {
+      final shortTrack = _song('short');
+      final longTrack = _song('long');
+      const shortDurationMs = 3 * 60 * 1000;
+      const longDurationMs = 17 * 60 * 1000;
+      final stats = computeWrapStats(
+        entries: [
+          for (var i = 0; i < 3; i++)
+            _entry(
+              songId: 'short',
+              msListened: shortDurationMs,
+              trackDurationMs: shortDurationMs,
+            ),
+          _entry(
+            songId: 'long',
+            msListened: longDurationMs,
+            trackDurationMs: longDurationMs,
+          ),
+        ],
+        libraryById: {'short': shortTrack, 'long': longTrack},
+      );
+
+      expect(stats.topSongs.map((s) => s.song.id).toList(), [
+        'short',
+        'long',
+      ]);
+    });
+
+    test('ties in listenedMs are broken alphabetically by title', () {
+      final songB = _song('b', artist: 'Zebra');
+      final songA = _song('a', artist: 'Apple');
+      final stats = computeWrapStats(
+        entries: [
+          _entry(songId: 'b', msListened: 300000, trackDurationMs: 300000),
+          _entry(songId: 'a', msListened: 300000, trackDurationMs: 300000),
+        ],
+        libraryById: {'a': songA, 'b': songB},
+        songSortOption: WrapSongSortOption.listeningTime,
+      );
+
+      expect(stats.topSongs.map((s) => s.song.id).toList(), ['a', 'b']);
+    });
   });
 
   group('mostRecentWrapBoundary', () {

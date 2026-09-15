@@ -19,11 +19,26 @@ bool isCountedPlay(int msListened, int trackDurationMs) {
   return msListened >= 60000;
 }
 
+/// Kriterij razvrščanja `WrapStats.topSongs` (glej
+/// `docs/faza2-wrap/spec-wrap2.md` "Wrap song ordering") - vpliva samo na
+/// pesmi, `topArtists`/`topAlbums` ostajata vedno razvrščena po `playCount`.
+enum WrapSongSortOption { playCount, listeningTime }
+
 class WrapSongStat {
-  const WrapSongStat({required this.song, required this.playCount});
+  const WrapSongStat({
+    required this.song,
+    required this.playCount,
+    required this.listenedMs,
+  });
 
   final Song song;
   final int playCount;
+
+  /// Vsota `msListened` čez šteti plays (glej [isCountedPlay]) te pesmi -
+  /// isti filter kot `playCount`, zato oba metrika rangirata isti nabor
+  /// "resničnih" predvajanj. Ločeno od `WrapStats.totalListened`, ki je
+  /// nefiltriran seštevek čez vse vnose.
+  final int listenedMs;
 }
 
 class WrapNamedStat {
@@ -68,6 +83,7 @@ WrapStats computeWrapStats({
   required List<PlayHistoryEntry> entries,
   required Map<String, Song> libraryById,
   bool genreEnabled = false,
+  WrapSongSortOption songSortOption = WrapSongSortOption.playCount,
 }) {
   final totalListenedMs = entries.fold<int>(
     0,
@@ -75,6 +91,7 @@ WrapStats computeWrapStats({
   );
 
   final songPlayCounts = <String, int>{};
+  final songListenedMs = <String, int>{};
   final artistPlayCounts = <String, int>{};
   final albumPlayCounts = <String, int>{};
   final genrePlayCounts = <String, int>{};
@@ -88,6 +105,11 @@ WrapStats computeWrapStats({
       song.id,
       (count) => count + 1,
       ifAbsent: () => 1,
+    );
+    songListenedMs.update(
+      song.id,
+      (total) => total + entry.msListened,
+      ifAbsent: () => entry.msListened,
     );
     artistPlayCounts.update(
       song.artist,
@@ -110,13 +132,21 @@ WrapStats computeWrapStats({
 
   final topSongs = songPlayCounts.entries
       .map(
-        (e) => WrapSongStat(song: libraryById[e.key]!, playCount: e.value),
+        (e) => WrapSongStat(
+          song: libraryById[e.key]!,
+          playCount: e.value,
+          listenedMs: songListenedMs[e.key]!,
+        ),
       )
       .toList()
     ..sort(
       (a, b) => _compareStats(
-        a.playCount,
-        b.playCount,
+        songSortOption == WrapSongSortOption.listeningTime
+            ? a.listenedMs
+            : a.playCount,
+        songSortOption == WrapSongSortOption.listeningTime
+            ? b.listenedMs
+            : b.playCount,
         a.song.title,
         b.song.title,
       ),
