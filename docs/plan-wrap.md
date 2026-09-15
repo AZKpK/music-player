@@ -105,8 +105,26 @@
    `libraryById` entries (deleted songs) still count toward total minutes
    but not toward any ranking, since `PlayHistoryEntries` has no
    artist/album/genre of its own to fall back on.
-5. `wrap_playlist_service.dart` (generation + collision suffixing) + unit
-   tests.
+5. **`wrap_playlist_service.dart` — DONE:** `generateYearlySnapshotPlaylist`
+   (suffixes on name collision, per spec) and `generateAllTimePlaylist`
+   (deletes + recreates any existing same-named playlist instead of
+   suffixing), both built on the existing `createPlaylist`/
+   `addSongToPlaylist`. Added two small `AppDatabase` helpers
+   (`allPlaylistNames`, `findPlaylistByName`) needed for the collision
+   check/lookup — not schema changes, just queries. `resolvePlaylistName`
+   is a standalone pure function so the suffixing logic itself doesn't need
+   a DB in tests.
+
+   **Environment note:** `wrap_playlist_service_test.dart` is the first
+   test in this repo to actually execute real Drift queries (not just
+   construct `AppDatabase.forTesting`) — this surfaced that the dev
+   sandbox's `libsqlite3-0` package doesn't provide the unversioned
+   `libsqlite3.so` symlink `package:sqlite3`'s FFI loader looks for
+   (`libsqlite3.so.0` exists, `libsqlite3.so` doesn't). Worked around
+   locally via a scratchpad symlink + `LD_LIBRARY_PATH` for this session;
+   not a code change, but worth installing `libsqlite3-dev` (provides the
+   symlink) on this machine so future `flutter test` runs don't need the
+   workaround.
 6. `wrap_providers.dart` — wire DB + stats + playlist service together.
 7. UI: `library_screen.dart` menu swap, then `wrap_screen.dart` (add
    `fl_chart` to `pubspec.yaml` at this point, not earlier).

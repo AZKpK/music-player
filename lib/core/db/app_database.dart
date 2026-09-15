@@ -177,6 +177,19 @@ class AppDatabase extends _$AppDatabase {
     return (delete(playlists)..where((t) => t.id.equals(id))).go();
   }
 
+  /// Za name-collision preverjanje ob generiranju Wrap playlist (glej
+  /// `wrap_playlist_service.dart`) - eno-shot poizvedba, ni watch/stream.
+  Future<Set<String>> allPlaylistNames() async {
+    final rows = await select(playlists).get();
+    return rows.map((row) => row.name).toSet();
+  }
+
+  Future<Playlist?> findPlaylistByName(String name) {
+    return (select(
+      playlists,
+    )..where((t) => t.name.equals(name))).getSingleOrNull();
+  }
+
   /// Doda pesem na konec playliste.
   Future<void> addSongToPlaylist(int playlistId, Song song) async {
     final lastSong =
