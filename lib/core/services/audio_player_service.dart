@@ -225,6 +225,76 @@ bool isLoopOneRepeat({
   );
 }
 
+/// Stanje wall-clock akumulatorja dejansko poslušanega časa (glej
+/// `docs/faza2-wrap/spec-wrap2.md` "Listening-time recording") - `total` je
+/// vsota že zaprtih segmentov, `activeSegmentStart` pa začetek trenutno
+/// odprtega segmenta (`null`, če player ni aktiven). Ločeno od
+/// `_lastKnownPosition`, ki ostaja izključno za zaznavo loop-one ponovitev.
+class ListenedAccumulator {
+  const ListenedAccumulator({this.total = Duration.zero, this.activeSegmentStart});
+
+  final Duration total;
+  final DateTime? activeSegmentStart;
+}
+
+/// Čista logika za [AudioPlayerHandler._handlePlayerStateChanged]: odpre
+/// segment ob prehodu v aktivno stanje, zapre (in všteje pretečeni čas v
+/// `total`) ob prehodu v neaktivno stanje, sicer ne naredi ničesar. Seek
+/// sam po sebi ne sproži `playerStateStream` dogodka, zato seek nikoli ne
+/// premakne tega časa - edino, kar šteje, je dejanski čas v `playing`
+/// stanju.
+ListenedAccumulator updateListenedAccumulator({
+  required ListenedAccumulator current,
+  required bool active,
+  required DateTime now,
+}) {
+  if (active && current.activeSegmentStart == null) {
+    return ListenedAccumulator(total: current.total, activeSegmentStart: now);
+  }
+  if (!active && current.activeSegmentStart != null) {
+    return ListenedAccumulator(
+      total: current.total + now.difference(current.activeSegmentStart!),
+      activeSegmentStart: null,
+    );
+  }
+  return current;
+}
+
+/// Rezultat [consumeListenedDuration]: `duration` je poslušani čas od
+/// zadnjega klica (za vpis v `PlayHistoryEntries`), `remainder` pa novo
+/// stanje akumulatorja za naslednji track.
+class ConsumedListened {
+  const ConsumedListened({required this.duration, required this.remainder});
+
+  final Duration duration;
+  final ListenedAccumulator remainder;
+}
+
+/// Čista logika za [AudioPlayerHandler._consumeListenedDuration], klicana
+/// ob vsakem `_recordPlay` mestu namesto branja `_lastKnownPosition`. Če je
+/// segment odprt, ga všteje v `total` in ga PONOVNO ODPRE pri `now` (namesto
+/// da bi ga zaprl) - pravi prehod na naslednjo pesem namreč sam po sebi ne
+/// pomeni pavze predvajanja, zato ni ločenega `playerStateStream` dogodka,
+/// ki bi segment zaprl ravno v tem trenutku.
+ConsumedListened consumeListenedDuration({
+  required ListenedAccumulator current,
+  required DateTime now,
+}) {
+  final flushed = current.activeSegmentStart != null
+      ? ListenedAccumulator(
+          total: current.total + now.difference(current.activeSegmentStart!),
+          activeSegmentStart: now,
+        )
+      : current;
+  return ConsumedListened(
+    duration: flushed.total,
+    remainder: ListenedAccumulator(
+      total: Duration.zero,
+      activeSegmentStart: flushed.activeSegmentStart,
+    ),
+  );
+}
+
 /// Inicializira audio_service background handler. Kliči enkrat v main()
 /// preden zaženeš runApp().
 Future<AudioPlayerHandler> initAudioService(AppDatabase database) {
@@ -255,6 +325,7 @@ class AudioPlayerHandler extends BaseAudioHandler
     _player.currentIndexStream.listen(_handleCurrentIndexChanged);
     _player.durationStream.listen(_handleDurationChanged);
     _player.positionStream.listen(_handlePositionChanged);
+    _player.playerStateStream.listen(_handlePlayerStateChanged);
     _player.processingStateStream.listen((state) {
       if (state == ProcessingState.completed) {
         _handleCompleted();
@@ -271,6 +342,11 @@ class AudioPlayerHandler extends BaseAudioHandler
   /// tisto, ki se je pravkar končala (glej `docs/spec-wrap.md`
   /// "Recording a play").
   Duration _lastKnownPosition = Duration.zero;
+
+  /// Wall-clock akumulator dejansko poslušanega časa trenutne pesmi (glej
+  /// [ListenedAccumulator], `docs/faza2-wrap/spec-wrap2.md`) - hrani se
+  /// ločeno od `_lastKnownPosition`, ki ostaja samo za loop-one zaznavo.
+  ListenedAccumulator _listenedAccumulator = const ListenedAccumulator();
 
   /// Napake pri predvajanju ene pesmi v queue-u (npr. datoteka je bila
   /// medtem izbrisana/premaknjena) - UI (npr. `PlayerScreen`) lahko posluša
@@ -368,7 +444,7 @@ class AudioPlayerHandler extends BaseAudioHandler
     // `mediaItem.add(queue.value[queueInitialIndex])`), zato
     // `_handleCurrentIndexChanged` tega prehoda ne bo zaznal kot pravo
     // menjavo - play prejšnje pesmi je treba zabeležiti tu.
-    _recordPlay(mediaItem.valueOrNull, _lastKnownPosition);
+    _recordPlay(mediaItem.valueOrNull, _consumeListenedDuration());
     _lastKnownPosition = Duration.zero;
     _loadedQueueSongs = List.of(songs);
     final initialQueue = buildInitialQueue(
@@ -707,14 +783,14 @@ class AudioPlayerHandler extends BaseAudioHandler
     // To je edini primer, ko `ProcessingState.completed` sploh nastopi (glej
     // `isLoopOneRepeat`/`docs/spec-wrap.md`) - zadnja pesem queue-a je torej
     // res dokončno odigrana.
-    _recordPlay(mediaItem.valueOrNull, _lastKnownPosition);
+    _recordPlay(mediaItem.valueOrNull, _consumeListenedDuration());
   }
 
   void _handleCurrentIndexChanged(int? index) {
     if (index == null || index < 0 || index >= queue.value.length) return;
     final incoming = queue.value[index];
     if (isRealSongTransition(outgoing: mediaItem.valueOrNull, incoming: incoming)) {
-      _recordPlay(mediaItem.valueOrNull, _lastKnownPosition);
+      _recordPlay(mediaItem.valueOrNull, _consumeListenedDuration());
     }
     _lastKnownPosition = Duration.zero;
     mediaItem.add(incoming);
@@ -739,7 +815,7 @@ class AudioPlayerHandler extends BaseAudioHandler
       previousPosition: _lastKnownPosition,
       newPosition: position,
     )) {
-      _recordPlay(mediaItem.valueOrNull, _lastKnownPosition);
+      _recordPlay(mediaItem.valueOrNull, _consumeListenedDuration());
       _lastKnownPosition = position;
       return;
     }
@@ -753,6 +829,32 @@ class AudioPlayerHandler extends BaseAudioHandler
       return;
     }
     _lastKnownPosition = position;
+  }
+
+  /// Posodobi [_listenedAccumulator] glede na dejansko `playing`/
+  /// `processingState` player-ja (glej [updateListenedAccumulator]) - seek
+  /// sam po sebi tega ne sproži, zato seek nikoli ne prispeva k
+  /// poslušanemu času.
+  void _handlePlayerStateChanged(PlayerState state) {
+    final active =
+        state.playing && state.processingState == ProcessingState.ready;
+    _listenedAccumulator = updateListenedAccumulator(
+      current: _listenedAccumulator,
+      active: active,
+      now: DateTime.now(),
+    );
+  }
+
+  /// Vrne dejansko poslušani čas od zadnjega klica in ponastavi akumulator
+  /// za naslednji track (glej [consumeListenedDuration]). Kliče se na
+  /// vsakem `_recordPlay` mestu namesto branja `_lastKnownPosition`.
+  Duration _consumeListenedDuration() {
+    final consumed = consumeListenedDuration(
+      current: _listenedAccumulator,
+      now: DateTime.now(),
+    );
+    _listenedAccumulator = consumed.remainder;
+    return consumed.duration;
   }
 
   /// Fire-and-forget insert - klicna mesta (transition/loop-repeat/completed)

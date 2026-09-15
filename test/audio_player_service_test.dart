@@ -467,4 +467,125 @@ void main() {
       );
     });
   });
+
+  group('updateListenedAccumulator', () {
+    test('opens a segment on transition to active', () {
+      final now = DateTime(2026, 9, 15, 12, 0, 0);
+      final result = updateListenedAccumulator(
+        current: const ListenedAccumulator(),
+        active: true,
+        now: now,
+      );
+
+      expect(result.total, Duration.zero);
+      expect(result.activeSegmentStart, now);
+    });
+
+    test('closes a segment on transition to inactive, folding elapsed time in', () {
+      final start = DateTime(2026, 9, 15, 12, 0, 0);
+      final now = start.add(const Duration(seconds: 5));
+      final result = updateListenedAccumulator(
+        current: ListenedAccumulator(activeSegmentStart: start),
+        active: false,
+        now: now,
+      );
+
+      expect(result.total, const Duration(seconds: 5));
+      expect(result.activeSegmentStart, isNull);
+    });
+
+    test('is a no-op when already active and stays active', () {
+      final start = DateTime(2026, 9, 15, 12, 0, 0);
+      final current = ListenedAccumulator(
+        total: const Duration(seconds: 2),
+        activeSegmentStart: start,
+      );
+      final result = updateListenedAccumulator(
+        current: current,
+        active: true,
+        now: start.add(const Duration(seconds: 3)),
+      );
+
+      expect(result.total, const Duration(seconds: 2));
+      expect(result.activeSegmentStart, start);
+    });
+
+    test('is a no-op when already inactive and stays inactive', () {
+      const current = ListenedAccumulator(total: Duration(seconds: 2));
+      final result = updateListenedAccumulator(
+        current: current,
+        active: false,
+        now: DateTime(2026, 9, 15, 12, 0, 0),
+      );
+
+      expect(result.total, const Duration(seconds: 2));
+      expect(result.activeSegmentStart, isNull);
+    });
+  });
+
+  group('consumeListenedDuration', () {
+    test('returns zero and an empty remainder when nothing was accumulated', () {
+      final result = consumeListenedDuration(
+        current: const ListenedAccumulator(),
+        now: DateTime(2026, 9, 15, 12, 0, 0),
+      );
+
+      expect(result.duration, Duration.zero);
+      expect(result.remainder.total, Duration.zero);
+      expect(result.remainder.activeSegmentStart, isNull);
+    });
+
+    test('returns the accumulated total when no segment is open', () {
+      final result = consumeListenedDuration(
+        current: const ListenedAccumulator(total: Duration(seconds: 90)),
+        now: DateTime(2026, 9, 15, 12, 0, 0),
+      );
+
+      expect(result.duration, const Duration(seconds: 90));
+      expect(result.remainder.total, Duration.zero);
+      expect(result.remainder.activeSegmentStart, isNull);
+    });
+
+    test(
+      'flushes an open segment into the total and restarts it at now, '
+      'instead of closing it, since a track transition does not itself '
+      'pause playback',
+      () {
+        final start = DateTime(2026, 9, 15, 12, 0, 0);
+        final now = start.add(const Duration(seconds: 4));
+        final result = consumeListenedDuration(
+          current: ListenedAccumulator(
+            total: const Duration(seconds: 10),
+            activeSegmentStart: start,
+          ),
+          now: now,
+        );
+
+        expect(result.duration, const Duration(seconds: 14));
+        expect(result.remainder.total, Duration.zero);
+        expect(result.remainder.activeSegmentStart, now);
+      },
+    );
+
+    test(
+      'seek then transition within a few seconds: listened reflects only '
+      'the active playback time, not the seeked position',
+      () {
+        // A seek does not itself change player state, so the active segment
+        // that started at play-begin is still open when the transition
+        // happens - only the wall-clock time since then is counted,
+        // regardless of where the seek landed in the track.
+        final playStarted = DateTime(2026, 9, 15, 12, 0, 0);
+        final transitionedAfterSeek = playStarted.add(
+          const Duration(seconds: 5),
+        );
+        final result = consumeListenedDuration(
+          current: ListenedAccumulator(activeSegmentStart: playStarted),
+          now: transitionedAfterSeek,
+        );
+
+        expect(result.duration, const Duration(seconds: 5));
+      },
+    );
+  });
 }
