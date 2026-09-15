@@ -296,6 +296,61 @@ class AppDatabase extends _$AppDatabase {
   Future<void> recordPlay(PlayHistoryEntriesCompanion entry) {
     return into(playHistoryEntries).insert(entry);
   }
+
+  /// Zapisi predvajanja znotraj `[from, to)` (`to` izključno) - `null` meja
+  /// pomeni brez omejitve v to smer (glej `wrap_providers.dart` -
+  /// `WrapPeriodBounds`, in-vseh-časov branje uporablja oba `null`).
+  Stream<List<PlayHistoryEntry>> watchPlayHistoryEntries({
+    DateTime? from,
+    DateTime? to,
+  }) {
+    final query = select(playHistoryEntries);
+    if (from != null) {
+      query.where((t) => t.playedAt.isBiggerOrEqualValue(from));
+    }
+    if (to != null) {
+      query.where((t) => t.playedAt.isSmallerThanValue(to));
+    }
+    return query.watch();
+  }
+
+  /// Edina vrstica Wrap nastavitev (`id = 0`) - `null`, dokler uporabnik ni
+  /// še ničesar spremenil; klicatelj takrat uporabi privzete vrednosti iz
+  /// `WrapSettings` tabele (glej `wrap_providers.dart`).
+  Stream<WrapSetting?> watchWrapSettings() {
+    return (select(
+      wrapSettings,
+    )..where((t) => t.id.equals(0))).watchSingleOrNull();
+  }
+
+  /// Delno posodobi (ali prvič ustvari) Wrap nastavitve - isti
+  /// insertOnConflictUpdate/delno-companion pattern kot [upsertOverride].
+  Future<void> updateWrapSettings({
+    bool? genreEnabled,
+    int? resetMonth,
+    int? resetDay,
+  }) {
+    return into(wrapSettings).insertOnConflictUpdate(
+      WrapSettingsCompanion(
+        id: const Value(0),
+        genreEnabled: genreEnabled != null
+            ? Value(genreEnabled)
+            : const Value.absent(),
+        resetMonth: resetMonth != null
+            ? Value(resetMonth)
+            : const Value.absent(),
+        resetDay: resetDay != null ? Value(resetDay) : const Value.absent(),
+      ),
+    );
+  }
+
+  /// Zabeleži, kdaj sta bili Wrap playlisti nazadnje (re)generirani - glej
+  /// spec "Trigger" (`WrapSettings.lastGeneratedAt` proti reset-meji).
+  Future<void> markWrapPlaylistsGenerated(DateTime when) {
+    return into(wrapSettings).insertOnConflictUpdate(
+      WrapSettingsCompanion(id: const Value(0), lastGeneratedAt: Value(when)),
+    );
+  }
 }
 
 /// Sestavljen ključ za reaktivni zemljevid [GroupArtworks].

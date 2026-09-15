@@ -125,7 +125,27 @@
    not a code change, but worth installing `libsqlite3-dev` (provides the
    symlink) on this machine so future `flutter test` runs don't need the
    workaround.
-6. `wrap_providers.dart` — wire DB + stats + playlist service together.
+6. **`wrap_providers.dart` — DONE:** `wrapSettingsProvider` (`StreamProvider<WrapSetting?>`,
+   `null` until a row exists — every downstream provider then falls back to
+   the table defaults, per spec), `wrapPeriodBoundsProvider` (current/
+   previous period start from `resetMonth`/`resetDay`, via new pure
+   `mostRecentWrapBoundary`/`computeWrapPeriodBounds` in
+   `wrap_stats_service.dart`), `currentPeriodPlayHistoryProvider` (live,
+   read-only — per spec's "opening the wrap screen ... displays live
+   current-period stats"), `wrapStatsProvider` joining that against
+   `librarySongsProvider`, and a `WrapPlaylistGenerator` controller
+   (`regenerateIfDue`, mirroring the existing `SongLikesController` pattern)
+   that regenerates both playlists only when `WrapSettings.lastGeneratedAt`
+   predates the current period's start, then stamps
+   `lastGeneratedAt = DateTime.now()`. Added three small `AppDatabase`
+   methods needed to back this (`watchWrapSettings`, `updateWrapSettings`,
+   `markWrapPlaylistsGenerated`, plus `watchPlayHistoryEntries({from, to})`)
+   — same delta-companion upsert pattern as `upsertOverride`, not schema
+   changes. No dedicated test file for this step, consistent with
+   `playlist_providers.dart`/`media_library_providers.dart` (thin reactive
+   wiring, not pure logic) — the boundary math it depends on
+   (`mostRecentWrapBoundary`, `computeWrapPeriodBounds`) is pure and is
+   covered directly in `wrap_stats_service_test.dart` instead.
 7. UI: `library_screen.dart` menu swap, then `wrap_screen.dart` (add
    `fl_chart` to `pubspec.yaml` at this point, not earlier).
 8. Full gate: `flutter analyze`, `flutter test`, `flutter build apk --debug`.
@@ -157,6 +177,11 @@ Each numbered step is its own commit (code + its tests together).
 - Step 4: `wrap_stats_service_test.dart` covers every case in the spec's
   Testing strategy section.
 - Step 5: `wrap_playlist_service_test.dart` covers 0/1/many name collisions.
+- Step 6: `wrap_stats_service_test.dart` covers `mostRecentWrapBoundary`/
+  `computeWrapPeriodBounds` (calendar-year default, exact-boundary edge,
+  before-reset-date fallback to last year); the Riverpod wiring itself is
+  exercised end-to-end in the step 7 manual verification below (no dedicated
+  provider test file, matching existing `*_providers.dart` convention).
 - Step 8: `flutter analyze` clean, `flutter test` all green, `flutter build
   apk --debug` succeeds — same three-command gate used for prior features
   (e.g. the P0/N5 queue-window work).

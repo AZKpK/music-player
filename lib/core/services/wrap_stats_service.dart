@@ -139,6 +139,59 @@ WrapStats computeWrapStats({
   );
 }
 
+/// Meje trenutnega (odprtega, "live") in prejšnjega (ravnokar zaprtega,
+/// za letno snapshot playlisto) Wrap obdobja glede na
+/// `WrapSettings.resetMonth`/`resetDay` (glej docs/intent-wrap.md "Year
+/// boundary" - spreminjanje reset datuma vpliva le na prihodnje bucketiranje,
+/// zato meje vedno računamo iz trenutnega nastavitve, nikoli shranjeno).
+class WrapPeriodBounds {
+  const WrapPeriodBounds({
+    required this.currentPeriodStart,
+    required this.previousPeriodStart,
+  });
+
+  /// Začetek odprtega obdobja (vključno) - konec je "zdaj", ni shranjen.
+  final DateTime currentPeriodStart;
+
+  /// Začetek prejšnjega, zaprtega obdobja (vključno) - konec je
+  /// [currentPeriodStart] (izključno). Uporabljeno za letno snapshot
+  /// playlisto; `previousPeriodStart.year` je oznaka leta te playliste.
+  final DateTime previousPeriodStart;
+}
+
+WrapPeriodBounds computeWrapPeriodBounds({
+  required DateTime now,
+  required int resetMonth,
+  required int resetDay,
+}) {
+  final currentPeriodStart = mostRecentWrapBoundary(
+    now: now,
+    resetMonth: resetMonth,
+    resetDay: resetDay,
+  );
+  final previousPeriodStart = DateTime(
+    currentPeriodStart.year - 1,
+    resetMonth,
+    resetDay,
+  );
+  return WrapPeriodBounds(
+    currentPeriodStart: currentPeriodStart,
+    previousPeriodStart: previousPeriodStart,
+  );
+}
+
+/// Najnovejša reset-meja, ki je `<= now` - t.j. začetek trenutnega odprtega
+/// obdobja.
+DateTime mostRecentWrapBoundary({
+  required DateTime now,
+  required int resetMonth,
+  required int resetDay,
+}) {
+  final thisYearBoundary = DateTime(now.year, resetMonth, resetDay);
+  if (!now.isBefore(thisYearBoundary)) return thisYearBoundary;
+  return DateTime(now.year - 1, resetMonth, resetDay);
+}
+
 List<WrapNamedStat> _sortedNamedStats(Map<String, int> counts) {
   return counts.entries
       .map((e) => WrapNamedStat(name: e.key, playCount: e.value))

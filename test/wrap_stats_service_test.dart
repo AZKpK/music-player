@@ -189,4 +189,45 @@ void main() {
       expect(stats.topGenre, isNull);
     });
   });
+
+  group('mostRecentWrapBoundary', () {
+    test('calendar year default: boundary is Jan 1 of the current year', () {
+      final boundary = mostRecentWrapBoundary(
+        now: DateTime(2026, 6, 15),
+        resetMonth: 1,
+        resetDay: 1,
+      );
+      expect(boundary, DateTime(2026, 1, 1));
+    });
+
+    test('now exactly on the boundary counts as the current period', () {
+      final boundary = mostRecentWrapBoundary(
+        now: DateTime(2026, 9, 1),
+        resetMonth: 9,
+        resetDay: 1,
+      );
+      expect(boundary, DateTime(2026, 9, 1));
+    });
+
+    test('now before this year\'s reset date falls back to last year\'s', () {
+      final boundary = mostRecentWrapBoundary(
+        now: DateTime(2026, 8, 31),
+        resetMonth: 9,
+        resetDay: 1,
+      );
+      expect(boundary, DateTime(2025, 9, 1));
+    });
+  });
+
+  group('computeWrapPeriodBounds', () {
+    test('current and previous period starts are exactly one year apart', () {
+      final bounds = computeWrapPeriodBounds(
+        now: DateTime(2026, 9, 15),
+        resetMonth: 9,
+        resetDay: 1,
+      );
+      expect(bounds.currentPeriodStart, DateTime(2026, 9, 1));
+      expect(bounds.previousPeriodStart, DateTime(2025, 9, 1));
+    });
+  });
 }
