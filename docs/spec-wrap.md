@@ -73,6 +73,24 @@ outgoing `mediaItem`'s duration (already resolved at queue-load /
 This still reuses data the handler already tracks — no new polling
 timers — just a stored last-seen value instead of a synchronous read.
 
+**Second build-stage spike result (see `plan-wrap.md` step 1):** confirmed
+on-device (seek-to-end + `LoopMode.one`, timestamped logcat to rule out
+log deduping) that a same-track loop-one repeat fires **no stream event at
+all** — neither `processingStateStream` (`completed` never appears) nor
+`currentIndexStream` (index doesn't change, as expected, but nothing else
+fires either). just_audio seeks back to 0 and keeps playing internally,
+silently. `_handleCurrentIndexChanged`/`_handleCompleted` therefore cannot
+be the hook for loop-one repeats — there is nothing for them to react to.
+
+Corrected mechanism for loop-one: detect the repeat directly in the
+`positionStream` listener that already maintains `_lastKnownPosition` —
+when a new emission is significantly *less* than the previous one while
+`LoopMode.one` is active for the current item (e.g. drops from near
+track-end to near 0), treat that as a completed play of the track that just
+looped, record a `PlayHistoryEntries` row using the previous
+`_lastKnownPosition` as `msListened`, then continue tracking from the new
+(lower) position. This is the only signal available for this case.
+
 ## Countable-play threshold (Build-stage spike gate)
 
 Per `intent-wrap.md`, this is a technical decision, not a product one:

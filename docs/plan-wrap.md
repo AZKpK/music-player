@@ -59,9 +59,19 @@
    item) written back into `spec-wrap.md`. `kUseDurationPercentThreshold`
    still ships `true` (50% rule) — the threshold choice was independent of
    the capture-mechanism bug.
+
+   **Second spike — DONE:** confirmed on-device (seek-to-end under
+   `LoopMode.one`, timestamped logcat) that a loop-one repeat fires *no*
+   stream event at all (`processingStateStream` never emits `completed`,
+   `currentIndexStream` never fires) — just_audio loops silently. Corrected
+   mechanism (detect a backward jump in `positionStream` while
+   `LoopMode.one` is active, treat it as a completed play of the looped
+   track) written back into `spec-wrap.md`.
 2. DB schema: add both tables + migration, regenerate `app_database.g.dart`.
-3. Recording hook in `_handleCurrentIndexChanged`, using the corrected
-   `_lastKnownPosition` mechanism from step 1, + its tests.
+3. Recording hook: `_lastKnownPosition` mechanism from step 1 feeding
+   `_handleCurrentIndexChanged` for normal transitions, *plus* the
+   backward-jump detection from the second spike for `LoopMode.one`
+   repeats, + tests for both paths.
 4. `wrap_stats_service.dart` (`isCountedPlay`, `computeWrapStats`) + unit
    tests — pure, testable before anything else exists.
 5. `wrap_playlist_service.dart` (generation + collision suffixing) + unit
@@ -79,6 +89,9 @@ Each numbered step is its own commit (code + its tests together).
   read doesn't work, corrected to a continuously-tracked `_lastKnownPosition`
   field (see `spec-wrap.md`). No change to the 50%/60s threshold decision
   itself.
+- ~~LoopMode.one repeats might not surface a distinct event~~ — resolved:
+  confirmed no stream event fires at all for a loop-one repeat; corrected to
+  a backward-jump detection in `positionStream` (see `spec-wrap.md`).
 - Migration is additive-only (two new tables) — no risk to existing
   playlist/override data.
 - `fl_chart` is a new dependency — confirm `flutter pub get` resolves
