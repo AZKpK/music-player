@@ -86,7 +86,7 @@ class _MiniPlayerContent extends ConsumerWidget {
                       ),
                     ),
                     const SizedBox(width: 8),
-                    _MiniPlayerTime(duration: duration),
+                    //_MiniPlayerTime(duration: duration),
                     const SizedBox(width: 8),
                   ],
                 ),
@@ -124,6 +124,7 @@ class _MiniPlayerProgress extends ConsumerWidget {
   }
 }
 
+/*
 class _MiniPlayerTime extends ConsumerWidget {
   const _MiniPlayerTime({required this.duration});
 
@@ -144,6 +145,7 @@ class _MiniPlayerTime extends ConsumerWidget {
     );
   }
 }
+*/
 
 class _MiniPlayerControls extends ConsumerWidget {
   const _MiniPlayerControls({required this.handler, required this.queue});
@@ -181,7 +183,7 @@ class _MiniPlayerControls extends ConsumerWidget {
     );
   }
 }
-
+/*
 String _formatDuration(Duration duration) {
   final hours = duration.inHours;
   final minutes = duration.inMinutes.remainder(60).toString().padLeft(2, '0');
@@ -189,3 +191,4 @@ String _formatDuration(Duration duration) {
   if (hours > 0) return '$hours:$minutes:$seconds';
   return '$minutes:$seconds';
 }
+*/
