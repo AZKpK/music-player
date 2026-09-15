@@ -160,7 +160,8 @@
    (fire-and-forget; genuinely a no-op unless the reset-date boundary was
    actually crossed). `fl_chart: ^0.69.2` added to `pubspec.yaml`,
    `flutter pub get` resolved cleanly.
-8. Full gate: `flutter analyze`, `flutter test`, `flutter build apk --debug`.
+8. **Full gate — DONE:** `flutter analyze` clean, `flutter test` 81/81
+   green, `flutter build apk --debug` succeeds.
 
 Each numbered step is its own commit (code + its tests together).
 
